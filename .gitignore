@@ -1,0 +1,40 @@
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcworkspace/xcshareddata/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+build/
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Python / PDF tooling
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.venv/
+venv/
+output/
+
+# IDE
+.idea/
+*.iml
+
+# CocoaPods
+Pods/
+Podfile.lock
