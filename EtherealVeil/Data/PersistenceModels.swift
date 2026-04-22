@@ -1,41 +1,8 @@
 // © World Class Scholars 2026 - Dr. Christopher Appiah-Thompson
-// SwiftData + CloudKit persistent models for gallery, drawings, settings.
+// SwiftData + CloudKit persistent models for drawings, settings.
 
 import SwiftData
 import SwiftUI
-
-// MARK: - Gallery Image
-
-@Model
-final class PersistedImage {
-    var id: UUID
-    var imageData: Data
-    var prompt: String?
-    var providerRaw: String?
-    var styleRaw: String?
-    var sourceRaw: String           // "generated" | "uploaded" | "camera"
-    var createdAt: Date
-    var isFavorite: Bool
-
-    init(imageData: Data,
-         prompt: String? = nil,
-         provider: String? = nil,
-         style: ImageStyle? = nil,
-         source: String,
-         createdAt: Date = .now) {
-        self.id = UUID()
-        self.imageData = imageData
-        self.prompt = prompt
-        self.providerRaw = provider
-        self.styleRaw = style?.rawValue
-        self.sourceRaw = source
-        self.createdAt = createdAt
-        self.isFavorite = false
-    }
-
-    var uiImage: UIImage? { UIImage(data: imageData) }
-    var style: ImageStyle? { styleRaw.flatMap { ImageStyle(rawValue: $0) } }
-}
 
 // MARK: - Drawing Session
 
@@ -84,7 +51,6 @@ final class FavoriteTrack {
 @Model
 final class AppSettings {
     var id: UUID
-    var selectedProviderRaw: String
     var autoPlayMusic: Bool
     var voiceGuidanceEnabled: Bool
     var drawingCanvasColorHex: String
@@ -94,16 +60,10 @@ final class AppSettings {
 
     init() {
         self.id = UUID()
-        self.selectedProviderRaw = AIProvider.stabilityAI.rawValue
         self.autoPlayMusic = true
         self.voiceGuidanceEnabled = true
         self.drawingCanvasColorHex = "#1A1A1A"
         self.createdAt = .now
-    }
-
-    var selectedProvider: AIProvider {
-        get { AIProvider(rawValue: selectedProviderRaw) ?? .stabilityAI }
-        set { selectedProviderRaw = newValue.rawValue }
     }
 }
 
@@ -116,15 +76,16 @@ struct PersistenceController {
 
     init(inMemory: Bool = false) {
         let schema = Schema([
-            PersistedImage.self,
             DrawingSession.self,
             FavoriteTrack.self,
             AppSettings.self,
         ])
+        let configName = inMemory ? UUID().uuidString : "EtherealVeilStore"
         let config = ModelConfiguration(
+            configName,
             schema: schema,
             isStoredInMemoryOnly: inMemory,
-            cloudKitDatabase: inMemory ? .none : .automatic   // iCloud sync when signed in
+            cloudKitDatabase: inMemory ? .none : .automatic
         )
         do {
             container = try ModelContainer(for: schema, configurations: [config])
@@ -132,8 +93,6 @@ struct PersistenceController {
             fatalError("SwiftData container failed: \(error)")
         }
     }
-
-    // MARK: - Preview / Test helper
 
     static var preview: PersistenceController {
         PersistenceController(inMemory: true)

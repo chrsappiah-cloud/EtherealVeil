@@ -26,7 +26,6 @@ final class MusicPlayerTests: XCTestCase {
     }
 
     func testInitialIsPlayingFalse() {
-        // MusicPlayer starts paused
         XCTAssertFalse(sut.isPlaying)
     }
 
@@ -73,7 +72,6 @@ final class MusicPlayerTests: XCTestCase {
 
     func testNextWrapsAroundAtEnd() {
         sut.play(index: sut.tracks.count - 1)
-        let _ = sut.currentIndex
         sut.next()
         XCTAssertEqual(sut.currentIndex, 0)
     }
@@ -105,6 +103,14 @@ final class MusicPlayerTests: XCTestCase {
         let before = sut.currentIndex
         sut.play(index: -1)
         XCTAssertEqual(sut.currentIndex, before)
+    }
+
+    // MARK: - Stop
+
+    func testStopResetsState() {
+        sut.stop()
+        XCTAssertFalse(sut.isPlaying)
+        XCTAssertEqual(sut.progress, 0)
     }
 
     // MARK: - Favorites
@@ -141,5 +147,30 @@ final class MusicPlayerTests: XCTestCase {
 
     func testSeekWithZeroDurationIsHarmless() {
         XCTAssertNoThrow(sut.seek(to: 1.0))
+    }
+
+    // MARK: - Audio URLs
+
+    func testAllTracksHaveAudioURLs() {
+        let withURL = sut.tracks.filter { $0.audioURL != nil }
+        XCTAssertEqual(withURL.count, sut.tracks.count,
+            "Every track should have an audio URL")
+    }
+
+    func testAudioURLsAreHTTPS() {
+        for track in sut.tracks {
+            if let url = track.audioURL {
+                XCTAssertEqual(url.scheme, "https", "\(track.title) audio URL is not HTTPS")
+            }
+        }
+    }
+
+    func testAudioURLsAreMp3() {
+        for track in sut.tracks {
+            if let url = track.audioURL {
+                XCTAssertTrue(url.pathExtension == "mp3",
+                    "\(track.title) should use MP3 format for AVPlayer compatibility")
+            }
+        }
     }
 }

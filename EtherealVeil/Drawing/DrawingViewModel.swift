@@ -87,6 +87,7 @@ final class DrawingViewModel {
             tool: currentTool
         )
         activeStroke = stroke
+        strokes.append(stroke)
     }
 
     func addPoint(_ point: CGPoint) {
@@ -94,9 +95,8 @@ final class DrawingViewModel {
         stroke.points.append(point)
         activeStroke = stroke
 
-        // Live render: replace last if already committed, otherwise append
-        if let last = strokes.last, last.id == stroke.id {
-            strokes[strokes.count - 1] = stroke
+        if let idx = strokes.firstIndex(where: { $0.id == stroke.id }) {
+            strokes[idx] = stroke
         } else {
             strokes.append(stroke)
         }

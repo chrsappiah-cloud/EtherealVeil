@@ -18,7 +18,7 @@ enum PaintBrush: String, CaseIterable, Identifiable {
         case .fan:        "leaf.fill"
         case .palette:    "paintpalette.fill"
         case .watercolor: "drop.fill"
-        case .oil:        "circle.lefthalf.filled.righthalf.strikethrough.circle"
+        case .oil:        "circle.lefthalf.filled"
         }
     }
 

@@ -1,18 +1,15 @@
 // © World Class Scholars 2026 - Dr. Christopher Appiah-Thompson
-// MusicPlayer — AVPlayer streaming with MusicKit fallback. No bundled files needed.
+// MusicPlayer — AVPlayer-based royalty-free classical music (CC0 Musopen, archive.org MP3).
 
 import AVFoundation
-import MusicKit
 import Observation
 
 struct MusicTrack: Identifiable, Equatable {
     let id: UUID
     let title: String
     let composer: String
-    let filename: String            // bundled resource name (optional)
-    let ext: String
     let durationLabel: String
-    var streamURL: URL?             // populated by MusicKit search when available
+    var audioURL: URL?
     var isFavorite: Bool = false
 }
 
@@ -20,7 +17,6 @@ struct MusicTrack: Identifiable, Equatable {
 @MainActor
 final class MusicPlayer: NSObject {
 
-    // Published state
     var tracks: [MusicTrack] = MusicPlayer.buildPlaylist()
     var currentIndex: Int = 0
     var isPlaying: Bool = false
@@ -29,9 +25,7 @@ final class MusicPlayer: NSObject {
     var totalDuration: TimeInterval = 0
     var isLoadingTrack: Bool = false
     var errorMessage: String?
-    var musicKitAuthorized: Bool = false
 
-    // AVPlayer
     private var player: AVPlayer?
     private var timeObserver: Any?
     private var playerItemObservation: NSKeyValueObservation?
@@ -43,7 +37,6 @@ final class MusicPlayer: NSObject {
     override init() {
         super.init()
         configureAudioSession()
-        Task { await requestMusicKitAuth() }
     }
 
     // MARK: - Playback Control
@@ -67,6 +60,10 @@ final class MusicPlayer: NSObject {
         loadAndPlay(tracks[index])
     }
 
+    func stop() {
+        stopCurrentPlayer()
+    }
+
     func next() { play(index: (currentIndex + 1) % tracks.count) }
     func previous() { play(index: (currentIndex - 1 + tracks.count) % tracks.count) }
 
@@ -86,72 +83,50 @@ final class MusicPlayer: NSObject {
         isLoadingTrack = true
         errorMessage = nil
 
-        Task {
-            // 1. Try bundled file first
-            if let url = Bundle.main.url(forResource: track.filename, withExtension: track.ext) {
-                await startPlayer(with: url)
-                return
-            }
-
-            // 2. Try MusicKit stream URL (requires Apple Music subscription)
-            if musicKitAuthorized, let url = track.streamURL {
-                await startPlayer(with: url)
-                return
-            }
-
-            // 3. Search MusicKit catalog and populate stream URL
-            if musicKitAuthorized {
-                if let url = await searchMusicKit(track: track) {
-                    tracks[currentIndex].streamURL = url
-                    await startPlayer(with: url)
-                    return
-                }
-            }
-
-            // 4. Graceful degradation — show info, no crash
-            isLoadingTrack = false
-            isPlaying = false
-            errorMessage = "'\(track.title)' not available. Bundle the .m4a file or subscribe to Apple Music."
+        if let url = track.audioURL {
+            startPlayer(with: url)
+            return
         }
+
+        isLoadingTrack = false
+        isPlaying = false
+        errorMessage = "'\(track.title)' is not available."
     }
 
-    private func startPlayer(with url: URL) async {
+    private func startPlayer(with url: URL) {
         let item = AVPlayerItem(url: url)
         let avPlayer = AVPlayer(playerItem: item)
         player = avPlayer
 
-        // Observe duration when ready
         playerItemObservation = item.observe(\.status) { [weak self] item, _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                if item.status == .readyToPlay {
+                switch item.status {
+                case .readyToPlay:
                     self.totalDuration = item.duration.seconds.isNaN ? 0 : item.duration.seconds
                     self.isLoadingTrack = false
+                case .failed:
+                    self.isLoadingTrack = false
+                    self.isPlaying = false
+                    self.errorMessage = "Could not load '\(self.currentTrack.title)'."
+                default:
+                    break
                 }
             }
         }
 
-        // Periodic progress
         let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
         timeObserver = avPlayer.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             Task { @MainActor [weak self] in
-                guard let self, let player = self.player else { return }
+                guard let self else { return }
                 self.elapsed = time.seconds.isNaN ? 0 : time.seconds
                 self.progress = self.totalDuration > 0 ? self.elapsed / self.totalDuration : 0
-                // Auto-advance
-                if player.currentItem?.status == .readyToPlay,
-                   abs(self.elapsed - self.totalDuration) < 1,
-                   self.totalDuration > 0 {
-                    self.next()
-                }
             }
         }
 
         NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(playerDidFinish),
-            name: .AVPlayerItemDidPlayToEndTime,
-            object: item
+            self, selector: #selector(playerDidFinish),
+            name: .AVPlayerItemDidPlayToEndTime, object: item
         )
 
         avPlayer.play()
@@ -173,28 +148,6 @@ final class MusicPlayer: NSObject {
         isPlaying = false
     }
 
-    // MARK: - MusicKit
-
-    private func requestMusicKitAuth() async {
-        let status = await MusicAuthorization.request()
-        musicKitAuthorized = status == .authorized
-    }
-
-    private func searchMusicKit(track: MusicTrack) async -> URL? {
-        var request = MusicCatalogSearchRequest(
-            term: "\(track.title) \(track.composer)",
-            types: [Song.self]
-        )
-        request.limit = 1
-
-        guard let response = try? await request.response(),
-              let song = response.songs.first,
-              let previewURL = song.previewAssets?.first?.url else {
-            return nil
-        }
-        return previewURL
-    }
-
     // MARK: - Helpers
 
     private func configureAudioSession() {
@@ -208,28 +161,38 @@ final class MusicPlayer: NSObject {
         return String(format: "%d:%02d", Int(t) / 60, Int(t) % 60)
     }
 
-    // MARK: - Static Playlist
+    // MARK: - Playlist (Musopen CC0 recordings via archive.org — MP3 format)
 
     static func buildPlaylist() -> [MusicTrack] {
-        [
-            MusicTrack(id: UUID(), title: "Nocturne Op.9 No.2",    composer: "Frédéric Chopin",
-                       filename: "chopin_nocturne_op9_no2",  ext: "m4a", durationLabel: "4:33"),
-            MusicTrack(id: UUID(), title: "Clair de Lune",         composer: "Claude Debussy",
-                       filename: "debussy_clair_de_lune",    ext: "m4a", durationLabel: "5:01"),
-            MusicTrack(id: UUID(), title: "Gymnopédie No.1",       composer: "Erik Satie",
-                       filename: "satie_gymnopedie_1",       ext: "m4a", durationLabel: "3:12"),
-            MusicTrack(id: UUID(), title: "Moonlight Sonata Mvt.1", composer: "Ludwig van Beethoven",
-                       filename: "beethoven_moonlight",      ext: "m4a", durationLabel: "6:02"),
-            MusicTrack(id: UUID(), title: "Prelude in C Major",    composer: "J.S. Bach",
-                       filename: "bach_prelude_c_major",     ext: "m4a", durationLabel: "2:28"),
-            MusicTrack(id: UUID(), title: "Liebestraum No.3",      composer: "Franz Liszt",
-                       filename: "liszt_liebestraum_3",      ext: "m4a", durationLabel: "4:46"),
-            MusicTrack(id: UUID(), title: "Romance Op.28 No.2",    composer: "Robert Schumann",
-                       filename: "schumann_romance",         ext: "m4a", durationLabel: "3:55"),
-            MusicTrack(id: UUID(), title: "Arabesque No.1",        composer: "Claude Debussy",
-                       filename: "debussy_arabesque_1",      ext: "m4a", durationLabel: "4:12"),
-            MusicTrack(id: UUID(), title: "Ballade No.1 Op.23",    composer: "Frédéric Chopin",
-                       filename: "chopin_ballade_1",         ext: "m4a", durationLabel: "8:31"),
+        let base = "https://archive.org/download/musopen-chopin/"
+        return [
+            MusicTrack(id: UUID(), title: "Nocturne Op.9 No.2",
+                       composer: "Chopin — Musopen CC0", durationLabel: "4:33",
+                       audioURL: URL(string: base + "Nocturne%20Op.%209%20no.%202%20in%20E%20flat%20major.mp3")),
+            MusicTrack(id: UUID(), title: "Ballade No.1 Op.23",
+                       composer: "Chopin — Musopen CC0", durationLabel: "8:31",
+                       audioURL: URL(string: base + "Ballade%20no.%201%20-%20Op.%2023.mp3")),
+            MusicTrack(id: UUID(), title: "Waltz Op.64 No.2",
+                       composer: "Chopin — Musopen CC0", durationLabel: "3:40",
+                       audioURL: URL(string: base + "Waltz%20Op.%2064%20no.%202%20in%20C%20sharp%20minor.mp3")),
+            MusicTrack(id: UUID(), title: "Minute Waltz Op.64 No.1",
+                       composer: "Chopin — Musopen CC0", durationLabel: "1:50",
+                       audioURL: URL(string: base + "Waltz%20Op.%2064%20no.%201%20in%20D%20flat%20major.mp3")),
+            MusicTrack(id: UUID(), title: "Fantasie Impromptu Op.66",
+                       composer: "Chopin — Musopen CC0", durationLabel: "5:20",
+                       audioURL: URL(string: base + "Fantasie%20Impromptu%20Op.%2066.mp3")),
+            MusicTrack(id: UUID(), title: "Waltz Op.34 No.2",
+                       composer: "Chopin — Musopen CC0", durationLabel: "5:10",
+                       audioURL: URL(string: base + "Waltz%20Op.%2034%20no.%202%20in%20A%20minor.mp3")),
+            MusicTrack(id: UUID(), title: "Ballade No.4 Op.52",
+                       composer: "Chopin — Musopen CC0", durationLabel: "11:10",
+                       audioURL: URL(string: base + "Ballade%20no.%204%20-%20Op.%2052.mp3")),
+            MusicTrack(id: UUID(), title: "Grande Valse Brillante Op.18",
+                       composer: "Chopin — Musopen CC0", durationLabel: "5:25",
+                       audioURL: URL(string: base + "Grande%20Valse%20Brilliante%2C%20Op.%2018%20in%20E%20Flat%20Major.mp3")),
+            MusicTrack(id: UUID(), title: "Waltz Op.34 No.3",
+                       composer: "Chopin — Musopen CC0", durationLabel: "2:15",
+                       audioURL: URL(string: base + "Waltz%20Op.%2034%20no.%203%20in%20F%20major.mp3")),
         ]
     }
 }
