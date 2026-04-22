@@ -1,134 +1,85 @@
 // © World Class Scholars 2026 - Dr. Christopher Appiah-Thompson
-// StudioViewModel — voice recording, image generation, gallery management.
+// StudioViewModel — real multi-provider image generation, voice, SwiftData gallery.
 
 import SwiftUI
 import PhotosUI
 import Speech
 import AVFoundation
+import SwiftData
 import Observation
-
-// MARK: - Supporting Models
-
-enum ImageStyle: String, CaseIterable, Identifiable {
-    case ethereal, watercolor, oilPainting, sketch, impressionist, abstract
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .ethereal:      "Ethereal"
-        case .watercolor:    "Watercolor"
-        case .oilPainting:   "Oil Paint"
-        case .sketch:        "Sketch"
-        case .impressionist: "Impressionist"
-        case .abstract:      "Abstract"
-        }
-    }
-
-    var stylePromptSuffix: String {
-        switch self {
-        case .ethereal:      "in an ethereal, dreamlike style with soft purple hues"
-        case .watercolor:    "in a delicate watercolor painting style"
-        case .oilPainting:   "as a rich oil painting with impasto texture"
-        case .sketch:        "as a detailed pencil sketch"
-        case .impressionist: "in an impressionist style with visible brushstrokes"
-        case .abstract:      "as an abstract expressionist painting"
-        }
-    }
-}
-
-enum GallerySource { case generated, uploaded }
-
-struct GalleryItem: Identifiable {
-    let id = UUID()
-    let image: UIImage
-    let source: GallerySource
-    let prompt: String?
-    let createdAt = Date()
-}
 
 // MARK: - ViewModel
 
 @Observable
 @MainActor
 final class StudioViewModel {
+
     // Generation
     var isGenerating = false
     var latestGeneratedImage: UIImage?
     var generationError: String?
+    var selectedProvider: AIProvider = .stabilityAI
+    var selectedSize: ImageSize = .square1024
 
     // Voice
     var isRecording = false
     var voiceTranscript = ""
 
-    // Gallery
+    // In-memory gallery (backed by SwiftData via sync)
     var gallery: [GalleryItem] = []
 
     // UI state
     var showCamera = false
+    var showAPIKeySettings = false
+
+    // SwiftData context injected from the environment
+    var modelContext: ModelContext?
 
     private var audioEngine: AVAudioEngine?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
 
+    // MARK: - API Key helpers
+
+    var currentAPIKeyIsSet: Bool {
+        KeychainService.hasKey(selectedProvider.keychainKey)
+    }
+
+    func saveAPIKey(_ key: String, for provider: AIProvider) {
+        try? KeychainService.save(key, for: provider.keychainKey)
+    }
+
     // MARK: - Image Generation
 
     func generateImage(prompt: String, style: ImageStyle) {
-        guard !prompt.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let trimmed = prompt.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+
+        guard currentAPIKeyIsSet else {
+            generationError = GenerationError.noAPIKey(selectedProvider.rawValue).localizedDescription
+            showAPIKeySettings = true
+            return
+        }
+
         isGenerating = true
         generationError = nil
 
-        // Build full prompt with style suffix
-        let fullPrompt = "\(prompt), \(style.stylePromptSuffix)"
+        let service = selectedProvider.makeService()
+        let size = selectedSize
 
         Task {
             do {
-                let image = try await callImageGenerationAPI(prompt: fullPrompt)
+                let image = try await service.generate(prompt: trimmed, style: style, size: size)
                 latestGeneratedImage = image
-                saveToGallery(image, prompt: fullPrompt)
+                persistImage(image, prompt: trimmed, style: style, source: "generated")
+            } catch let err as GenerationError {
+                generationError = err.localizedDescription
             } catch {
                 generationError = error.localizedDescription
             }
             isGenerating = false
         }
-    }
-
-    // Replace with your actual API (OpenAI DALL·E, Stability AI, etc.)
-    private func callImageGenerationAPI(prompt: String) async throws -> UIImage {
-        // Placeholder — renders a gradient canvas with the prompt as a watermark.
-        // Wire in your API key + endpoint here.
-        let size = CGSize(width: 512, height: 512)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        let image = renderer.image { ctx in
-            let gradient = CGGradient(
-                colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                colors: [
-                    UIColor(red: 0.15, green: 0.05, blue: 0.35, alpha: 1).cgColor,
-                    UIColor(red: 0.35, green: 0.1, blue: 0.6, alpha: 1).cgColor,
-                    UIColor(red: 0.05, green: 0.2, blue: 0.5, alpha: 1).cgColor,
-                ] as CFArray,
-                locations: [0, 0.5, 1]
-            )!
-            ctx.cgContext.drawLinearGradient(
-                gradient,
-                start: .zero,
-                end: CGPoint(x: size.width, y: size.height),
-                options: []
-            )
-
-            // Draw placeholder label
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 16, weight: .medium),
-                .foregroundColor: UIColor.white.withAlphaComponent(0.7),
-            ]
-            let text = "AI Image Preview\n\(prompt.prefix(60))…"
-            let rect = CGRect(x: 20, y: size.height / 2 - 40, width: size.width - 40, height: 80)
-            (text as NSString).draw(in: rect, withAttributes: attrs)
-        }
-        // Simulate network latency
-        try await Task.sleep(for: .seconds(1.5))
-        return image
     }
 
     // MARK: - Voice Recording
@@ -140,7 +91,24 @@ final class StudioViewModel {
     private func startRecording(updatePrompt: @escaping (String) -> Void) {
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
             Task { @MainActor [weak self] in
-                guard let self, status == .authorized else { return }
+                guard let self else { return }
+                guard status == .authorized else {
+                    self.generationError = "Speech recognition not authorized. Enable in Settings → Privacy."
+                    return
+                }
+                self.requestMicrophoneAndBegin(updatePrompt: updatePrompt)
+            }
+        }
+    }
+
+    private func requestMicrophoneAndBegin(updatePrompt: @escaping (String) -> Void) {
+        AVAudioApplication.requestRecordPermission { [weak self] granted in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard granted else {
+                    self.generationError = "Microphone access denied. Enable in Settings → Privacy."
+                    return
+                }
                 self.beginAudioCapture(updatePrompt: updatePrompt)
             }
         }
@@ -149,9 +117,11 @@ final class StudioViewModel {
     private func beginAudioCapture(updatePrompt: @escaping (String) -> Void) {
         let engine = AVAudioEngine()
         audioEngine = engine
+
         let request = SFSpeechAudioBufferRecognitionRequest()
-        recognitionRequest = request
         request.shouldReportPartialResults = true
+        request.requiresOnDeviceRecognition = false
+        recognitionRequest = request
 
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.record, mode: .measurement, options: .duckOthers)
@@ -163,15 +133,25 @@ final class StudioViewModel {
             request.append(buffer)
         }
 
-        try? engine.start()
-        isRecording = true
+        do {
+            try engine.start()
+        } catch {
+            generationError = "Audio engine failed to start: \(error.localizedDescription)"
+            return
+        }
 
-        recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, _ in
+        isRecording = true
+        voiceTranscript = ""
+
+        recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if let text = result?.bestTranscription.formattedString {
                     self.voiceTranscript = text
                     updatePrompt(text)
+                }
+                if result?.isFinal == true || error != nil {
+                    self.stopRecording()
                 }
             }
         }
@@ -186,30 +166,82 @@ final class StudioViewModel {
         recognitionRequest = nil
         recognitionTask = nil
         isRecording = false
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     // MARK: - Gallery
 
-    func saveToGallery(_ image: UIImage, prompt: String? = nil) {
-        let item = GalleryItem(image: image, source: .generated, prompt: prompt)
-        gallery.insert(item, at: 0)
-    }
-
-    func addToGallery(_ image: UIImage) {
-        let item = GalleryItem(image: image, source: .uploaded, prompt: nil)
-        gallery.insert(item, at: 0)
+    func addToGallery(_ image: UIImage, source: String = "uploaded") {
+        persistImage(image, prompt: nil, style: nil, source: source)
     }
 
     func removeFromGallery(_ item: GalleryItem) {
         gallery.removeAll { $0.id == item.id }
+        if let ctx = modelContext {
+            let id = item.id
+            let fetch = FetchDescriptor<PersistedImage>(
+                predicate: #Predicate { $0.id == id }
+            )
+            if let found = try? ctx.fetch(fetch).first {
+                ctx.delete(found)
+                try? ctx.save()
+            }
+        }
+    }
+
+    func loadGalleryFromDatabase() {
+        guard let ctx = modelContext else { return }
+        let fetch = FetchDescriptor<PersistedImage>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        guard let items = try? ctx.fetch(fetch) else { return }
+        gallery = items.compactMap { persisted -> GalleryItem? in
+            guard let image = persisted.uiImage else { return nil }
+            return GalleryItem(
+                id: persisted.id,
+                image: image,
+                source: persisted.sourceRaw,
+                prompt: persisted.prompt,
+                provider: persisted.providerRaw,
+                createdAt: persisted.createdAt
+            )
+        }
     }
 
     func loadPickedPhotos(_ items: [PhotosPickerItem]) async {
         for item in items {
             if let data = try? await item.loadTransferable(type: Data.self),
                let image = UIImage(data: data) {
-                addToGallery(image)
+                addToGallery(image, source: "uploaded")
             }
+        }
+    }
+
+    // MARK: - Private persistence
+
+    private func persistImage(_ image: UIImage, prompt: String?, style: ImageStyle?, source: String) {
+        guard let data = image.jpegData(compressionQuality: 0.85) else { return }
+
+        let item = GalleryItem(
+            id: UUID(),
+            image: image,
+            source: source,
+            prompt: prompt,
+            provider: source == "generated" ? selectedProvider.rawValue : nil,
+            createdAt: .now
+        )
+        gallery.insert(item, at: 0)
+
+        if let ctx = modelContext {
+            let record = PersistedImage(
+                imageData: data,
+                prompt: prompt,
+                provider: source == "generated" ? selectedProvider.rawValue : nil,
+                style: style,
+                source: source
+            )
+            ctx.insert(record)
+            try? ctx.save()
         }
     }
 }

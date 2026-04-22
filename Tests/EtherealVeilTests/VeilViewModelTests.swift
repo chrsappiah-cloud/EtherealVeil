@@ -1,17 +1,18 @@
 // © World Class Scholars 2026 - Dr. Christopher Appiah-Thompson
-// Unit tests for VeilViewModel — canvas state, stroke lifecycle, palette cycling.
+// DrawingViewModel tests (replaces VeilViewModel tests — class was renamed in the redesign).
 
 import XCTest
 import SwiftUI
 @testable import EtherealVeil
 
+@MainActor
 final class VeilViewModelTests: XCTestCase {
 
-    private var sut: VeilViewModel!
+    private var sut: DrawingViewModel!
 
     override func setUp() {
         super.setUp()
-        sut = VeilViewModel()
+        sut = DrawingViewModel()
     }
 
     override func tearDown() {
@@ -22,120 +23,99 @@ final class VeilViewModelTests: XCTestCase {
     // MARK: - Initial State
 
     func testInitialStateIsEmpty() {
-        XCTAssertTrue(sut.glowTrails.isEmpty, "Canvas should start with no trails")
+        XCTAssertTrue(sut.strokes.isEmpty)
     }
 
-    // MARK: - addPoint
+    // MARK: - addPoint (via startStroke + addPoint)
 
     func testAddPointCreatesOneTrail() {
-        sut.addPoint(CGPoint(x: 10, y: 20))
-        XCTAssertEqual(sut.glowTrails.count, 1)
+        sut.startStroke(at: CGPoint(x: 10, y: 20))
+        sut.addPoint(CGPoint(x: 15, y: 25))
+        sut.endStroke()
+        XCTAssertEqual(sut.strokes.count, 1)
     }
 
     func testAddPointsWithinSameStrokeDoNotStackTrails() {
-        sut.addPoint(CGPoint(x: 0, y: 0))
+        sut.startStroke(at: CGPoint(x: 0, y: 0))
         sut.addPoint(CGPoint(x: 10, y: 10))
         sut.addPoint(CGPoint(x: 20, y: 20))
-        // All three points belong to one stroke — should accumulate into 1 trail
-        XCTAssertEqual(sut.glowTrails.count, 1, "Consecutive points in one stroke must share a trail")
+        XCTAssertEqual(sut.strokes.count, 1)
     }
 
     func testEachTrailHasPositiveThickness() {
-        sut.addPoint(CGPoint(x: 5, y: 5))
-        XCTAssertGreaterThan(sut.glowTrails[0].thickness, 0)
+        sut.startStroke(at: CGPoint(x: 5, y: 5))
+        XCTAssertGreaterThan(sut.strokes.first?.width ?? 0, 0)
     }
 
-    func testTrailPathIsNotEmpty() {
-        sut.addPoint(CGPoint(x: 100, y: 200))
-        // A path with one point has a valid (possibly zero-size) bounding rect;
-        // adding a second ensures a non-zero width.
+    func testTrailPathGrowsWithPoints() {
+        sut.startStroke(at: CGPoint(x: 100, y: 200))
         sut.addPoint(CGPoint(x: 150, y: 250))
-        let updated = sut.glowTrails[0].path.boundingRect
-        XCTAssertGreaterThan(updated.width + updated.height, 0, "Path bounding rect should have extent")
+        sut.endStroke()
+        let bounds = sut.strokes[0].path.boundingRect
+        XCTAssertGreaterThan(bounds.width + bounds.height, 0)
     }
 
     // MARK: - endStroke
 
     func testEndStrokeAllowsNewStrokeToStartFresh() {
-        sut.addPoint(CGPoint(x: 0, y: 0))
+        sut.startStroke(at: CGPoint(x: 0, y: 0))
+        sut.addPoint(CGPoint(x: 5, y: 5))
         sut.endStroke()
-        // After ending, a new addPoint starts a second trail
-        sut.addPoint(CGPoint(x: 100, y: 100))
-        XCTAssertEqual(sut.glowTrails.count, 2, "Each stroke should produce its own trail")
+        sut.startStroke(at: CGPoint(x: 100, y: 100))
+        sut.addPoint(CGPoint(x: 110, y: 110))
+        sut.endStroke()
+        XCTAssertEqual(sut.strokes.count, 2)
     }
 
     func testMultipleCompletedStrokes() {
         for i in 0..<4 {
-            sut.addPoint(CGPoint(x: CGFloat(i * 10), y: 0))
+            sut.startStroke(at: CGPoint(x: CGFloat(i * 10), y: 0))
+            sut.addPoint(CGPoint(x: CGFloat(i * 10 + 5), y: 5))
             sut.endStroke()
         }
-        XCTAssertEqual(sut.glowTrails.count, 4)
+        XCTAssertEqual(sut.strokes.count, 4)
     }
 
     func testEndStrokeWithoutPointsIsHarmless() {
-        XCTAssertNoThrow(sut.endStroke(), "endStroke on an empty stroke must not throw")
-        XCTAssertTrue(sut.glowTrails.isEmpty)
+        XCTAssertNoThrow(sut.endStroke())
+        XCTAssertTrue(sut.strokes.isEmpty)
     }
 
     // MARK: - clearCanvas
 
     func testClearCanvasRemovesAllTrails() {
-        sut.addPoint(CGPoint(x: 0, y: 0))
-        sut.endStroke()
-        sut.addPoint(CGPoint(x: 50, y: 50))
-        sut.endStroke()
-        sut.clearCanvas()
-        XCTAssertTrue(sut.glowTrails.isEmpty, "clearCanvas must remove all trails")
-    }
-
-    func testClearCanvasResetsStrokeCounter() {
-        // Exhaust the palette once to advance strokeIndex, then clear and
-        // verify the first trail after clearing uses the same colour slot
-        // as a brand-new instance (palette[0]).
-        let fresh = VeilViewModel()
-        fresh.addPoint(.zero)
-        let freshColor = fresh.glowTrails[0].color
-
-        for _ in 0..<6 {
-            sut.addPoint(CGPoint(x: 1, y: 1))
-            sut.endStroke()
-        }
-        sut.clearCanvas()
-        sut.addPoint(.zero)
-        XCTAssertEqual(
-            sut.glowTrails[0].color, freshColor,
-            "After clearCanvas strokeIndex must reset so palette starts at index 0"
-        )
+        sut.startStroke(at: .zero); sut.addPoint(CGPoint(x: 5, y: 5)); sut.endStroke()
+        sut.startStroke(at: CGPoint(x: 50, y: 50)); sut.addPoint(CGPoint(x: 55, y: 55)); sut.endStroke()
+        sut.clear()
+        XCTAssertTrue(sut.strokes.isEmpty)
     }
 
     func testClearCanvasThenDrawWorks() {
-        sut.addPoint(CGPoint(x: 10, y: 10))
-        sut.clearCanvas()
-        sut.addPoint(CGPoint(x: 20, y: 20))
-        XCTAssertEqual(sut.glowTrails.count, 1, "Drawing after clear should work normally")
+        sut.startStroke(at: CGPoint(x: 10, y: 10)); sut.addPoint(CGPoint(x: 15, y: 15)); sut.endStroke()
+        sut.clear()
+        sut.startStroke(at: CGPoint(x: 20, y: 20)); sut.addPoint(CGPoint(x: 25, y: 25)); sut.endStroke()
+        XCTAssertEqual(sut.strokes.count, 1)
     }
 
-    // MARK: - Palette Cycling
+    // MARK: - Undo / Redo
 
-    func testPaletteCyclesAfterSixStrokes() {
-        var colors: [Color] = []
-        for i in 0..<12 {
-            sut.addPoint(CGPoint(x: CGFloat(i), y: 0))
-            colors.append(sut.glowTrails.last!.color)
-            sut.endStroke()
-        }
-        // Palette has 6 entries — colours at positions 0 and 6 must match
-        XCTAssertEqual(colors[0], colors[6], "Palette must cycle every 6 strokes")
-        XCTAssertEqual(colors[1], colors[7])
+    func testUndoRedoCycle() {
+        sut.startStroke(at: .zero); sut.addPoint(CGPoint(x: 5, y: 5)); sut.endStroke()
+        XCTAssertTrue(sut.canUndo)
+        sut.undo()
+        XCTAssertTrue(sut.strokes.isEmpty)
+        XCTAssertTrue(sut.canRedo)
+        sut.redo()
+        XCTAssertEqual(sut.strokes.count, 1)
     }
 
     func testTrailIdsAreUnique() {
         for i in 0..<5 {
-            sut.addPoint(CGPoint(x: CGFloat(i * 10), y: 0))
+            sut.startStroke(at: CGPoint(x: CGFloat(i * 10), y: 0))
+            sut.addPoint(CGPoint(x: CGFloat(i * 10 + 5), y: 5))
             sut.endStroke()
         }
-        let ids = sut.glowTrails.map(\.id)
-        let uniqueIds = Set(ids)
-        XCTAssertEqual(ids.count, uniqueIds.count, "Every GlowTrail must have a unique id")
+        let ids = sut.strokes.map(\.id)
+        XCTAssertEqual(ids.count, Set(ids).count)
     }
 }

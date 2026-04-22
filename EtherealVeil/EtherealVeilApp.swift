@@ -1,7 +1,7 @@
 // © World Class Scholars 2026 - Dr. Christopher Appiah-Thompson
-// Bridging equity in dementia care through therapeutic technology.
 
 import SwiftUI
+import SwiftData
 
 @main
 struct EtherealVeilApp: App {
@@ -9,5 +9,6 @@ struct EtherealVeilApp: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(PersistenceController.shared.container)
     }
 }
