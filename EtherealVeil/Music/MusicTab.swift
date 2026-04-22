@@ -1,4 +1,6 @@
-// © World Class Scholars 2026 - Dr. Christopher Appiah-Thompson
+// © 2026 World Class Scholars — Dr. Christopher Appiah-Thompson. All Rights Reserved.
+// Ethereal Veil™ is a trademark of World Class Scholars.
+// Unauthorized reproduction or distribution is prohibited.
 // MusicTab is no longer a standalone tab. This file is kept as a
 // reusable playlist view that can be presented as a sheet from
 // the drawing or painting tabs if needed in the future.

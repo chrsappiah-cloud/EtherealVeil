@@ -1,4 +1,6 @@
-// © World Class Scholars 2026 - Dr. Christopher Appiah-Thompson
+// © 2026 World Class Scholars — Dr. Christopher Appiah-Thompson. All Rights Reserved.
+// Ethereal Veil™ is a trademark of World Class Scholars.
+// Unauthorized reproduction or distribution is prohibited.
 
 import SwiftUI
 import SwiftData
