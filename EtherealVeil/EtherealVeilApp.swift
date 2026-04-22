@@ -1,7 +1,9 @@
-// © World Class Scholars 2026 - Dr. Christopher Appiah-Thompson
-// Bridging equity in dementia care through therapeutic technology.
+// © 2026 World Class Scholars — Dr. Christopher Appiah-Thompson. All Rights Reserved.
+// Ethereal Veil™ is a trademark of World Class Scholars.
+// Unauthorized reproduction or distribution is prohibited.
 
 import SwiftUI
+import SwiftData
 
 @main
 struct EtherealVeilApp: App {
@@ -9,5 +11,6 @@ struct EtherealVeilApp: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(PersistenceController.shared.container)
     }
 }
