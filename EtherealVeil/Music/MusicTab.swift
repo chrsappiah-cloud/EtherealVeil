@@ -174,7 +174,7 @@ struct PlaylistRow: View {
 
                 Spacer()
 
-                Text(track.duration)
+                Text(track.durationLabel)
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.4))
             }
