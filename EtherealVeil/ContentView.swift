@@ -32,7 +32,9 @@ struct ContentView: View {
                 whisperVoice.speak("Enter the veil. Create from within.")
             }
         }
+        #if os(iOS)
         .navigationViewStyle(.stack)
+        #endif
     }
 
     private var etherealBackground: some View {
