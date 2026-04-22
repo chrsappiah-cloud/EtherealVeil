@@ -1,27 +1,26 @@
 included:
   - EtherealVeil
+  - Tests
 
 excluded:
-  - EtherealVeil/EtherealVeilTests
-  - EtherealVeil/EtherealVeilUITests
+  - .build
+  - .swiftpm
 
 opt_in_rules:
   - closure_spacing
   - empty_count
-  - explicit_init
   - first_where
-  - force_unwrapping
   - identical_operands
   - overridden_super_call
-  - private_outlet
   - prohibited_super_call
   - redundant_nil_coalescing
   - sorted_imports
-  - trailing_closure
   - unneeded_parentheses_in_closure_argument
 
 disabled_rules:
-  - trailing_whitespace  # handled by editor
+  - trailing_whitespace
+  - force_try              # acceptable in test tear-down
+  - explicit_init          # SwiftUI @StateObject init is idiomatic
 
 line_length:
   warning: 130

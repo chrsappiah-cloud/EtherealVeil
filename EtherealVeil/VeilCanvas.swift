@@ -16,12 +16,13 @@ struct VeilCanvas: View {
                     lineWidth: trail.thickness * 2.5
                 )
                 // Core luminous trail
+                let bounds = trail.path.boundingRect
                 context.stroke(
                     trail.path,
                     with: .linearGradient(
                         Gradient(colors: [trail.color.opacity(0.3), trail.color]),
-                        startPoint: .leading,
-                        endPoint: .trailing
+                        startPoint: CGPoint(x: bounds.minX, y: bounds.midY),
+                        endPoint: CGPoint(x: bounds.maxX, y: bounds.midY)
                     ),
                     lineWidth: trail.thickness
                 )

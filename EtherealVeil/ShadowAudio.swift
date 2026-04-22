@@ -32,9 +32,11 @@ class ShadowAudio: ObservableObject {
     // MARK: - Private
 
     private func configureAudioSession() {
+        #if os(iOS)
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
         try? session.setActive(true)
+        #endif
     }
 
     private func loadAndPlay(resource: String, ext: String) {
