@@ -32,3 +32,20 @@
 - Run a full release build and verify app launch on physical device.
 - Verify offline behavior for drawing/painting flows and error states for music streaming URLs.
 - Confirm no debug-only UI or logs are exposed in Release builds.
+
+## GitHub Actions automated App Store upload
+
+The workflow `.github/workflows/ios-appstore-upload.yml` can build, sign, export, and upload to App Store Connect.
+
+Required repository secrets:
+
+- `ASC_KEY_ID`
+- `ASC_ISSUER_ID`
+- `ASC_API_KEY_P8_BASE64` (base64-encoded `.p8` content)
+- `APPLE_TEAM_ID`
+- `IOS_CERT_P12_BASE64` (base64-encoded distribution `.p12`)
+- `IOS_CERT_P12_PASSWORD`
+- `IOS_PROFILE_BASE64` (base64-encoded App Store provisioning profile)
+- `KEYCHAIN_PASSWORD`
+
+Run it from GitHub Actions via `workflow_dispatch`, or by pushing a tag like `v1.0.1`.
