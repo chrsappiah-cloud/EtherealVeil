@@ -1,32 +1,16 @@
-//
-//  EtherealVeilApp.swift
-//  EtherealVeil
-//
-//  Created by Christopher Appiah-Thompson  on 22/4/2026.
-//
+// © 2026 World Class Scholars — Dr. Christopher Appiah-Thompson. All Rights Reserved.
+// Ethereal Veil™ is a trademark of World Class Scholars.
+// Unauthorized reproduction or distribution is prohibited.
 
 import SwiftUI
 import SwiftData
 
 @main
 struct EtherealVeilApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
-
     var body: some Scene {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(sharedModelContainer)
+        .modelContainer(PersistenceController.shared.container)
     }
 }
