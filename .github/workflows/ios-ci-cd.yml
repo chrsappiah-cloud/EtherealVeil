@@ -9,6 +9,13 @@ on:
       - "v*"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     name: Build and Test
@@ -21,25 +28,16 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
-      - name: Build (Debug, iOS Simulator)
+      - name: Make preflight executable
         run: |
-          xcodebuild \
-            -project "EtherealVeil.xcodeproj" \
-            -scheme "EtherealVeil" \
-            -configuration Debug \
-            -destination "platform=iOS Simulator,name=iPhone 16" \
-            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
-            build
+          chmod +x scripts/release_preflight.sh
 
-      - name: Test (iOS Simulator)
+      - name: Preflight (unit tests + release build)
         run: |
-          xcodebuild \
-            -project "EtherealVeil.xcodeproj" \
-            -scheme "EtherealVeil" \
-            -configuration Debug \
-            -destination "platform=iOS Simulator,name=iPhone 16" \
-            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
-            test
+          PROJECT_PATH="$GITHUB_WORKSPACE/EtherealVeil.xcodeproj" \
+          TEST_SCOPE="unit" \
+          DERIVED_DATA="$RUNNER_TEMP/DerivedData-Preflight" \
+          bash scripts/release_preflight.sh
 
   cd:
     name: Release Archive Artifact

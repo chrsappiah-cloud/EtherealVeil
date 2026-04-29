@@ -6,6 +6,11 @@
 # Build artifacts
 DerivedData/
 .build/
+build/
+*.xcarchive/
+*.ipa
+*.dSYM.zip
+*.xcresult
 
 # macOS
 .DS_Store
