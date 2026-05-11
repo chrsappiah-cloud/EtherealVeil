@@ -4,12 +4,18 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"   # e.g. v1.0.0
+  workflow_dispatch:               # manual trigger from GitHub Actions UI
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false        # never cancel an in-flight deployment
 
 jobs:
   archive-and-upload:
     name: Archive & Upload to TestFlight
     runs-on: macos-15
     environment: production
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v4
@@ -74,6 +80,14 @@ jobs:
             --apiKey "$APP_STORE_CONNECT_KEY_ID" \
             --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
             --apiPrivateKeyPath "$KEY_PATH"
+
+      - name: Upload archive artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: EtherealVeil-archive
+          path: ${{ runner.temp }}/EtherealVeil.xcarchive
+          retention-days: 14
 
       - name: Clean up keychain
         if: always()
