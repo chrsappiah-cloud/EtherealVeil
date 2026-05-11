@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Xcode 15+ app-store-connect method for direct TestFlight / App Store upload -->
+	<key>method</key>
+	<string>app-store-connect</string>
+
+	<key>teamID</key>
+	<string>TM2WG7HH96</string>
+
+	<key>destination</key>
+	<string>upload</string>
+
+	<key>signingStyle</key>
+	<string>automatic</string>
+
+	<key>signingCertificate</key>
+	<string>Apple Distribution</string>
+
+	<!-- Symbol upload enables crash report symbolication in Xcode Organizer -->
+	<key>uploadSymbols</key>
+	<true/>
+
+	<key>stripSwiftSymbols</key>
+	<true/>
+
+	<!-- Bitcode is fully deprecated as of Xcode 14 / iOS 16 -->
+	<key>compileBitcode</key>
+	<false/>
+
+	<key>uploadBitcode</key>
+	<false/>
+
+	<!-- App thinning: none — let App Store / TestFlight handle variants -->
+	<key>thinning</key>
+	<string>&lt;none&gt;</string>
+
+	<!-- Generate App Store metadata for submission review -->
+	<key>generateAppStoreInformation</key>
+	<true/>
+
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+</dict>
+</plist>
