@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 // © World Class Scholars 2026 - Dr. Christopher Appiah-Thompson
 
 import PackageDescription
@@ -6,8 +6,8 @@ import PackageDescription
 let package = Package(
     name: "EtherealVeil",
     platforms: [
-        .iOS(.v16),
-        .macOS(.v13)
+        .iOS(.v18),
+        .macOS(.v14)
     ],
     products: [
         .library(name: "EtherealVeil", targets: ["EtherealVeil"])
