@@ -70,6 +70,19 @@ final class PersistenceTests: XCTestCase {
         try context.save()
         XCTAssertTrue(settings.autoPlayMusic)
         XCTAssertTrue(settings.voiceGuidanceEnabled)
+        XCTAssertTrue(settings.cloudKitSyncEnabled)
+        XCTAssertTrue(settings.iCloudBackupEnabled)
+        XCTAssertNil(settings.lastBackupAt)
+    }
+
+    func testInsertBackupSnapshot() throws {
+        let snapshot = BackupSnapshot(provider: "CloudKit", status: "Ready", sessionCount: 3, favoriteCount: 2)
+        context.insert(snapshot)
+        try context.save()
+        let fetched = try context.fetch(FetchDescriptor<BackupSnapshot>())
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched[0].provider, "CloudKit")
+        XCTAssertEqual(fetched[0].sessionCount, 3)
     }
 
     func testInMemoryContainerDoesNotPersistAcrossInstances() throws {

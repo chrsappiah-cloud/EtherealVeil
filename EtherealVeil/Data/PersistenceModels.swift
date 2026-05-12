@@ -48,6 +48,27 @@ final class FavoriteTrack {
     }
 }
 
+// MARK: - Backup Snapshot
+
+@Model
+final class BackupSnapshot {
+    var id: UUID
+    var provider: String
+    var status: String
+    var sessionCount: Int
+    var favoriteCount: Int
+    var createdAt: Date
+
+    init(provider: String, status: String, sessionCount: Int, favoriteCount: Int) {
+        self.id = UUID()
+        self.provider = provider
+        self.status = status
+        self.sessionCount = sessionCount
+        self.favoriteCount = favoriteCount
+        self.createdAt = .now
+    }
+}
+
 // MARK: - App Settings
 
 @Model
@@ -55,7 +76,12 @@ final class AppSettings {
     var id: UUID
     var autoPlayMusic: Bool
     var voiceGuidanceEnabled: Bool
+    var cloudKitSyncEnabled: Bool
+    var iCloudBackupEnabled: Bool
     var drawingCanvasColorHex: String
+    var lastBackupAt: Date?
+    var lastBackupProvider: String
+    var backupStatusMessage: String
     var createdAt: Date
 
     static let defaultKey = "app_settings_singleton"
@@ -64,7 +90,12 @@ final class AppSettings {
         self.id = UUID()
         self.autoPlayMusic = true
         self.voiceGuidanceEnabled = true
+        self.cloudKitSyncEnabled = true
+        self.iCloudBackupEnabled = true
         self.drawingCanvasColorHex = "#1A1A1A"
+        self.lastBackupAt = nil
+        self.lastBackupProvider = ""
+        self.backupStatusMessage = "CloudKit sync is ready and iCloud recovery backups are enabled."
         self.createdAt = .now
     }
 }
@@ -80,6 +111,7 @@ struct PersistenceController {
         let schema = Schema([
             DrawingSession.self,
             FavoriteTrack.self,
+            BackupSnapshot.self,
             AppSettings.self,
         ])
         let configName = inMemory ? UUID().uuidString : "EtherealVeilStore"

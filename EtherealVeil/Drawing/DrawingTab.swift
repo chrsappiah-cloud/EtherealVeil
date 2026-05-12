@@ -7,6 +7,10 @@ import SwiftUI
 
 struct DrawingTab: View {
     var musicPlayer: MusicPlayer
+    var onSave: (Int) -> Void = { _ in }
+    var onOpenLibrary: () -> Void = {}
+    var onOpenPlaylist: () -> Void = {}
+    var onOpenCloud: () -> Void = {}
     @State private var vm = DrawingViewModel()
     @State private var showColorPicker = false
 
@@ -16,9 +20,10 @@ struct DrawingTab: View {
 
             VStack(spacing: 0) {
                 header
-                neonToolbar
+                actionRail
+                gildedToolbar
                 canvasArea
-                Spacer().frame(height: 110)
+                Spacer().frame(height: 12)
             }
 
             if showColorPicker { colorPickerOverlay }
@@ -38,18 +43,18 @@ struct DrawingTab: View {
                     [0, 1], [0.5, 1], [1, 1]
                 ],
                 colors: [
-                    .black, Color(red: 0.05, green: 0, blue: 0.15), .black,
-                    Color(red: 0, green: 0.05, blue: 0.12), Color(red: 0.06, green: 0.02, blue: 0.1), Color(red: 0.08, green: 0, blue: 0.1),
-                    .black, Color(red: 0.03, green: 0, blue: 0.08), .black
+                    .black, Color(red: 0.18, green: 0.11, blue: 0.03), .black,
+                    Color(red: 0.12, green: 0.08, blue: 0.02), Color(red: 0.21, green: 0.15, blue: 0.06), Color(red: 0.14, green: 0.09, blue: 0.02),
+                    .black, Color(red: 0.09, green: 0.06, blue: 0.02), .black
                 ]
             )
         } else {
             LinearGradient(
                 colors: [
                     .black,
-                    Color(red: 0.05, green: 0, blue: 0.15),
-                    Color(red: 0, green: 0.05, blue: 0.12),
-                    Color(red: 0.08, green: 0, blue: 0.1),
+                    Color(red: 0.16, green: 0.1, blue: 0.03),
+                    Color(red: 0.24, green: 0.18, blue: 0.08),
+                    Color(red: 0.11, green: 0.07, blue: 0.02),
                     .black
                 ],
                 startPoint: .topLeading,
@@ -63,13 +68,10 @@ struct DrawingTab: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("DRAW")
                     .font(.system(size: 28, weight: .black, design: .rounded))
-                    .foregroundStyle(
-                        LinearGradient(colors: [.cyan, .white],
-                                       startPoint: .leading, endPoint: .trailing)
-                    )
-                Text("Digital Sketch Studio")
+                    .foregroundStyle(GoldStudioTheme.sparkle)
+                Text("Spackled Gold Sketch Atelier")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(Color.white.opacity(0.58))
             }
             Spacer()
             // Undo / Redo / Clear
@@ -84,39 +86,52 @@ struct DrawingTab: View {
         .padding(.bottom, 8)
     }
 
-    // MARK: - Neon Toolbar
+    private var actionRail: some View {
+        HStack(spacing: 10) {
+            workspaceButton(title: "Save", icon: "square.and.arrow.down.fill") {
+                onSave(vm.strokes.count)
+            }
+            workspaceButton(title: "Library", icon: "books.vertical.fill", action: onOpenLibrary)
+            workspaceButton(title: "Playlist", icon: "music.note.list", action: onOpenPlaylist)
+            workspaceButton(title: "Cloud", icon: "icloud.and.arrow.up.fill", action: onOpenCloud)
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+    }
 
-    private var neonToolbar: some View {
+    // MARK: - Toolbar
+
+    private var gildedToolbar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 ForEach(DrawingTool.allCases) { tool in
-                    neonToolButton(tool: tool)
+                    gildedToolButton(tool: tool)
                 }
 
-                neonDivider
+                gildedDivider
 
                 // Stroke size
                 HStack(spacing: 4) {
-                    Circle().fill(.white.opacity(0.3)).frame(width: 4, height: 4)
+                    Circle().fill(Color.white.opacity(0.3)).frame(width: 4, height: 4)
                     Slider(value: $vm.strokeWidth, in: 1...40)
-                        .tint(.cyan)
+                        .tint(Color(red: 0.92, green: 0.77, blue: 0.36))
                         .frame(width: 70)
-                    Circle().fill(.white.opacity(0.5)).frame(width: 10, height: 10)
+                    Circle().fill(Color.white.opacity(0.5)).frame(width: 10, height: 10)
                 }
 
-                neonDivider
+                gildedDivider
 
                 // Opacity
                 HStack(spacing: 4) {
                     Image(systemName: "circle.lefthalf.filled")
                         .font(.system(size: 10))
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(Color.white.opacity(0.4))
                     Slider(value: $vm.opacity, in: 0.05...1)
-                        .tint(.purple)
+                        .tint(Color(red: 0.8, green: 0.62, blue: 0.26))
                         .frame(width: 70)
                 }
 
-                neonDivider
+                gildedDivider
 
                 // Color swatch
                 Button { showColorPicker.toggle() } label: {
@@ -126,7 +141,7 @@ struct DrawingTab: View {
                             .frame(width: 30, height: 30)
                         Circle()
                             .stroke(
-                                LinearGradient(colors: [.cyan.opacity(0.8), .purple.opacity(0.8)],
+                                LinearGradient(colors: [Color.white.opacity(0.9), Color(red: 0.88, green: 0.69, blue: 0.29)],
                                                startPoint: .topLeading, endPoint: .bottomTrailing),
                                 lineWidth: 2
                             )
@@ -140,43 +155,46 @@ struct DrawingTab: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(.black.opacity(0.4))
+                .fill(Color.black.opacity(0.36))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.cyan.opacity(0.15), lineWidth: 0.5)
+                        .stroke(GoldStudioTheme.sparkle.opacity(0.24), lineWidth: 0.8)
                 )
         )
         .padding(.horizontal, 12)
     }
 
-    private func neonToolButton(tool: DrawingTool) -> some View {
+    private func gildedToolButton(tool: DrawingTool) -> some View {
         let selected = vm.currentTool == tool
+        let iconStyle = selected ? AnyShapeStyle(GoldStudioTheme.sparkle) : AnyShapeStyle(Color.white.opacity(0.5))
+        let labelStyle = selected ? AnyShapeStyle(GoldStudioTheme.sparkle) : AnyShapeStyle(Color.white.opacity(0.3))
+        let borderStyle = selected ? AnyShapeStyle(GoldStudioTheme.sparkle.opacity(0.5)) : AnyShapeStyle(Color.clear)
         return Button { vm.currentTool = tool } label: {
             VStack(spacing: 3) {
                 Image(systemName: tool.icon)
                     .font(.system(size: 18, weight: selected ? .bold : .regular))
-                    .foregroundStyle(selected ? .cyan : .white.opacity(0.5))
+                    .foregroundStyle(iconStyle)
                 Text(tool.label)
                     .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(selected ? .cyan : .white.opacity(0.3))
+                    .foregroundStyle(labelStyle)
             }
             .frame(width: 44, height: 44)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(selected ? Color.cyan.opacity(0.15) : .clear)
+                    .fill(selected ? Color(red: 0.88, green: 0.69, blue: 0.29).opacity(0.16) : .clear)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(selected ? Color.cyan.opacity(0.4) : .clear, lineWidth: 1)
+                            .stroke(borderStyle, lineWidth: 1)
                     )
             )
-            .shadow(color: selected ? .cyan.opacity(0.3) : .clear, radius: 8)
+            .shadow(color: selected ? Color(red: 0.88, green: 0.69, blue: 0.29).opacity(0.25) : .clear, radius: 8)
         }
         .buttonStyle(.plain)
     }
 
-    private var neonDivider: some View {
+    private var gildedDivider: some View {
         Rectangle()
-            .fill(LinearGradient(colors: [.cyan.opacity(0.3), .purple.opacity(0.3)],
+            .fill(LinearGradient(colors: [Color.white.opacity(0.4), Color(red: 0.88, green: 0.69, blue: 0.29).opacity(0.4)],
                                  startPoint: .top, endPoint: .bottom))
             .frame(width: 1, height: 28)
     }
@@ -189,12 +207,12 @@ struct DrawingTab: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(
-                        LinearGradient(colors: [.cyan.opacity(0.2), .purple.opacity(0.2), .clear],
+                        LinearGradient(colors: [Color.white.opacity(0.25), Color(red: 0.88, green: 0.69, blue: 0.29).opacity(0.3), .clear],
                                        startPoint: .topLeading, endPoint: .bottomTrailing),
                         lineWidth: 1
                     )
             )
-            .shadow(color: .cyan.opacity(0.1), radius: 20)
+            .shadow(color: Color(red: 0.88, green: 0.69, blue: 0.29).opacity(0.12), radius: 20)
             .padding(.horizontal, 12)
             .padding(.top, 6)
     }
@@ -226,14 +244,11 @@ struct DrawingTab: View {
 
                 Button("Done") { showColorPicker = false }
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(
-                        Capsule().fill(
-                            LinearGradient(colors: [.cyan, .purple],
-                                           startPoint: .leading, endPoint: .trailing)
-                        )
+                        Capsule().fill(GoldStudioTheme.sparkle)
                     )
             }
             .padding(24)
@@ -242,11 +257,11 @@ struct DrawingTab: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 28)
-                            .stroke(Color.cyan.opacity(0.2), lineWidth: 0.5)
+                            .stroke(GoldStudioTheme.sparkle.opacity(0.35), lineWidth: 0.8)
                     )
             )
             .padding(.horizontal, 20)
-            .padding(.bottom, 120)
+            .padding(.bottom, 20)
         }
         .background(Color.black.opacity(0.5).ignoresSafeArea())
         .onTapGesture { showColorPicker = false }
@@ -254,11 +269,26 @@ struct DrawingTab: View {
 
     // MARK: - Helpers
 
-    private func glowButton(icon: String, enabled: Bool, tint: Color = .cyan, action: @escaping () -> Void) -> some View {
+    private func workspaceButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                Text(title)
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.black)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(Capsule().fill(GoldStudioTheme.sparkle))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func glowButton(icon: String, enabled: Bool, tint: Color = Color(red: 0.88, green: 0.69, blue: 0.29), action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(enabled ? tint : .white.opacity(0.2))
+                .foregroundStyle(enabled ? tint : Color.white.opacity(0.2))
                 .frame(width: 34, height: 34)
                 .background(Circle().fill(tint.opacity(enabled ? 0.12 : 0)))
                 .shadow(color: enabled ? tint.opacity(0.3) : .clear, radius: 6)
