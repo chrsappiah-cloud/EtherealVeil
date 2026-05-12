@@ -12,7 +12,6 @@ final class PersistenceTests: XCTestCase {
     private var context: ModelContext!
 
     override func setUp() async throws {
-        try await super.setUp()
         container = PersistenceController(inMemory: true).container
         context = container.mainContext
     }
@@ -20,7 +19,6 @@ final class PersistenceTests: XCTestCase {
     override func tearDown() async throws {
         context = nil
         container = nil
-        try await super.tearDown()
     }
 
     // MARK: - FavoriteTrack

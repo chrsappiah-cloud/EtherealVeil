@@ -10,13 +10,11 @@ final class MusicPlayerTests: XCTestCase {
     private var sut: MusicPlayer!
 
     override func setUp() async throws {
-        try await super.setUp()
         sut = MusicPlayer()
     }
 
     override func tearDown() async throws {
         sut = nil
-        try await super.tearDown()
     }
 
     // MARK: - Initial state

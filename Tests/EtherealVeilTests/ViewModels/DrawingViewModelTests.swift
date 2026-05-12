@@ -13,13 +13,11 @@ final class DrawingViewModelTests: XCTestCase {
     private var sut: DrawingViewModel!
 
     override func setUp() async throws {
-        try await super.setUp()
         sut = DrawingViewModel()
     }
 
     override func tearDown() async throws {
         sut = nil
-        try await super.tearDown()
     }
 
     // Initial state
@@ -144,13 +142,11 @@ final class PaintingViewModelTests: XCTestCase {
     private var sut: PaintingViewModel!
 
     override func setUp() async throws {
-        try await super.setUp()
         sut = PaintingViewModel()
     }
 
     override func tearDown() async throws {
         sut = nil
-        try await super.tearDown()
     }
 
     func testInitialStrokesEmpty() { XCTAssertTrue(sut.strokes.isEmpty) }

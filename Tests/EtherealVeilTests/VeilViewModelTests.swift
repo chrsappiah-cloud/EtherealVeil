@@ -11,13 +11,11 @@ final class VeilViewModelTests: XCTestCase {
     private var sut: DrawingViewModel!
 
     override func setUp() async throws {
-        try await super.setUp()
         sut = DrawingViewModel()
     }
 
     override func tearDown() async throws {
         sut = nil
-        try await super.tearDown()
     }
 
     // MARK: - Initial State
