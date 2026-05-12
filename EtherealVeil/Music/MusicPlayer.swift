@@ -153,9 +153,11 @@ final class MusicPlayer: NSObject {
     // MARK: - Helpers
 
     private func configureAudioSession() {
+        #if os(iOS)
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default, options: [.mixWithOthers, .allowAirPlay])
         try? session.setActive(true)
+        #endif
     }
 
     private func format(_ t: TimeInterval) -> String {

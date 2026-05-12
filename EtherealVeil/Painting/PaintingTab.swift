@@ -13,20 +13,7 @@ struct PaintingTab: View {
 
     var body: some View {
         ZStack {
-            MeshGradient(
-                width: 3, height: 3,
-                points: [
-                    [0, 0], [0.5, 0], [1, 0],
-                    [0, 0.5], [0.5, 0.5], [1, 0.5],
-                    [0, 1], [0.5, 1], [1, 1]
-                ],
-                colors: [
-                    .black, Color(red: 0.1, green: 0, blue: 0.08), .black,
-                    Color(red: 0.06, green: 0, blue: 0.12), Color(red: 0.08, green: 0.02, blue: 0.06), Color(red: 0.1, green: 0, blue: 0.05),
-                    .black, Color(red: 0.05, green: 0, blue: 0.1), .black
-                ]
-            )
-            .ignoresSafeArea()
+            backgroundGradient
 
             VStack(spacing: 0) {
                 header
@@ -41,6 +28,37 @@ struct PaintingTab: View {
     }
 
     // MARK: - Header
+
+    @ViewBuilder
+    private var backgroundGradient: some View {
+        if #available(macOS 15, iOS 18, *) {
+            MeshGradient(
+                width: 3, height: 3,
+                points: [
+                    [0, 0], [0.5, 0], [1, 0],
+                    [0, 0.5], [0.5, 0.5], [1, 0.5],
+                    [0, 1], [0.5, 1], [1, 1]
+                ],
+                colors: [
+                    .black, Color(red: 0.1, green: 0, blue: 0.08), .black,
+                    Color(red: 0.06, green: 0, blue: 0.12), Color(red: 0.08, green: 0.02, blue: 0.06), Color(red: 0.1, green: 0, blue: 0.05),
+                    .black, Color(red: 0.05, green: 0, blue: 0.1), .black
+                ]
+            )
+        } else {
+            LinearGradient(
+                colors: [
+                    .black,
+                    Color(red: 0.1, green: 0, blue: 0.08),
+                    Color(red: 0.06, green: 0, blue: 0.12),
+                    Color(red: 0.1, green: 0, blue: 0.05),
+                    .black
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
 
     private var header: some View {
         HStack {

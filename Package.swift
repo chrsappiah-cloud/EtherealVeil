@@ -18,7 +18,12 @@ let package = Package(
             path: "EtherealVeil",
             // EtherealVeilApp.swift uses @main — excluded so SPM doesn't
             // try to find a duplicate entry point when building as a library.
-            exclude: ["EtherealVeilApp.swift"]
+            exclude: [
+                "Assets.xcassets",
+                "EtherealVeilApp.swift",
+                "ExportOptions.plist",
+                "Resources"
+            ]
         ),
         .testTarget(
             name: "EtherealVeilTests",

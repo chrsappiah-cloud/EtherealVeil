@@ -12,21 +12,7 @@ struct DrawingTab: View {
 
     var body: some View {
         ZStack {
-            // Animated gradient background
-            MeshGradient(
-                width: 3, height: 3,
-                points: [
-                    [0, 0], [0.5, 0], [1, 0],
-                    [0, 0.5], [0.5, 0.5], [1, 0.5],
-                    [0, 1], [0.5, 1], [1, 1]
-                ],
-                colors: [
-                    .black, Color(red: 0.05, green: 0, blue: 0.15), .black,
-                    Color(red: 0, green: 0.05, blue: 0.12), Color(red: 0.06, green: 0.02, blue: 0.1), Color(red: 0.08, green: 0, blue: 0.1),
-                    .black, Color(red: 0.03, green: 0, blue: 0.08), .black
-                ]
-            )
-            .ignoresSafeArea()
+            backgroundGradient
 
             VStack(spacing: 0) {
                 header
@@ -40,6 +26,37 @@ struct DrawingTab: View {
     }
 
     // MARK: - Header
+
+    @ViewBuilder
+    private var backgroundGradient: some View {
+        if #available(macOS 15, iOS 18, *) {
+            MeshGradient(
+                width: 3, height: 3,
+                points: [
+                    [0, 0], [0.5, 0], [1, 0],
+                    [0, 0.5], [0.5, 0.5], [1, 0.5],
+                    [0, 1], [0.5, 1], [1, 1]
+                ],
+                colors: [
+                    .black, Color(red: 0.05, green: 0, blue: 0.15), .black,
+                    Color(red: 0, green: 0.05, blue: 0.12), Color(red: 0.06, green: 0.02, blue: 0.1), Color(red: 0.08, green: 0, blue: 0.1),
+                    .black, Color(red: 0.03, green: 0, blue: 0.08), .black
+                ]
+            )
+        } else {
+            LinearGradient(
+                colors: [
+                    .black,
+                    Color(red: 0.05, green: 0, blue: 0.15),
+                    Color(red: 0, green: 0.05, blue: 0.12),
+                    Color(red: 0.08, green: 0, blue: 0.1),
+                    .black
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
 
     private var header: some View {
         HStack {

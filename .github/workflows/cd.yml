@@ -1,34 +1,22 @@
-name: CD — TestFlight (Production)
+name: CD — GitHub Release
 
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"   # semver tags only, e.g. v1.0.0
-  workflow_dispatch:
-    inputs:
-      marketing_version:
-        description: "Marketing version (e.g. 1.0.0). Leave blank to read from Info.plist."
-        required: false
-        type: string
+      - "v*.*.*"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false        # never cancel an in-flight deployment
+  cancel-in-progress: false
 
-env:
-  SCHEME: EtherealVeil
-  CONFIGURATION: Release
-  INFO_PLIST: EtherealVeil/Resources/Info.plist
-  EXPORT_PLIST: EtherealVeil/ExportOptions.plist
-  IPA_NAME: EtherealVeil.ipa
-  TEAM_ID: TM2WG7HH96
+permissions:
+  contents: write
 
 jobs:
-  archive-and-upload:
-    name: Archive & Upload to TestFlight
+  release:
+    name: Build & Publish Release
     runs-on: macos-15
-    environment: production
-    timeout-minutes: 60
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -41,169 +29,35 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
-      # ── Version resolution ────────────────────────────────────────────────
-      - name: Resolve marketing version + build number
-        id: version
+      - name: Resolve dependencies
+        run: swift package resolve
+
+      - name: Build release configuration
+        run: swift build --configuration release
+
+      - name: Run tests
+        run: swift test --configuration release --parallel
+
+      - name: Create release archives
         run: |
           set -euo pipefail
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            MV="${GITHUB_REF_NAME#v}"
-          elif [[ -n "${{ inputs.marketing_version }}" ]]; then
-            MV="${{ inputs.marketing_version }}"
-          else
-            MV=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST")
-          fi
-          BN="$(( 100 + ${{ github.run_number }} ))"
-          echo "marketing=$MV" >> "$GITHUB_OUTPUT"
-          echo "build=$BN"     >> "$GITHUB_OUTPUT"
-          echo "Marketing version : $MV"
-          echo "Build number      : $BN"
+          mkdir -p dist
+          VERSION="${GITHUB_REF_NAME#v}"
+          git archive --format=zip --output "dist/EtherealVeil-${VERSION}.zip" HEAD
+          git archive --format=tar.gz --output "dist/EtherealVeil-${VERSION}.tar.gz" HEAD
+          cp Package.swift dist/
 
-      # ── Stamp Info.plist (SPM has no agvtool; PlistBuddy is authoritative) ─
-      - name: Stamp Info.plist with version + build
-        run: |
-          set -euo pipefail
-          /usr/libexec/PlistBuddy -c \
-            "Set :CFBundleShortVersionString ${{ steps.version.outputs.marketing }}" \
-            "$INFO_PLIST"
-          /usr/libexec/PlistBuddy -c \
-            "Set :CFBundleVersion ${{ steps.version.outputs.build }}" \
-            "$INFO_PLIST"
-          echo "Stamped Info.plist:"
-          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST"
-          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST"
-
-      # ── Code signing ──────────────────────────────────────────────────────
-      - name: Import code-signing assets
-        env:
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-          P12_PASSWORD:             ${{ secrets.P12_PASSWORD }}
-          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
-          KEYCHAIN_PASSWORD:        ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          set -euo pipefail
-          CERT_PATH=$RUNNER_TEMP/build_certificate.p12
-          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-
-          echo -n "$BUILD_CERTIFICATE_BASE64"         | base64 --decode -o "$CERT_PATH"
-          echo -n "$BUILD_PROVISION_PROFILE_BASE64"   | base64 --decode -o "$PP_PATH"
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security import "$CERT_PATH" -P "$P12_PASSWORD" \
-            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security set-key-partition-list \
-            -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
-
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
-
-      # ── Archive (Xcode resolves the SPM package automatically) ───────────
-      - name: Archive (Release)
-        run: |
-          set -euo pipefail
-          xcodebuild archive \
-            -scheme "$SCHEME" \
-            -configuration "$CONFIGURATION" \
-            -destination "generic/platform=iOS" \
-            -archivePath "$RUNNER_TEMP/$SCHEME.xcarchive" \
-            -allowProvisioningUpdates \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            | xcpretty || exit ${PIPESTATUS[0]}
-
-      - name: Export IPA
-        run: |
-          set -euo pipefail
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/$SCHEME.xcarchive" \
-            -exportOptionsPlist "$EXPORT_PLIST" \
-            -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates
-          ls -lh "$RUNNER_TEMP/export"
-
-      # ── App Store Connect API key ─────────────────────────────────────────
-      - name: Prepare App Store Connect API key
-        env:
-          ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
-        run: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo -n "$ASC_PRIVATE_KEY_BASE64" | base64 --decode \
-            > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
-          echo -n "$ASC_PRIVATE_KEY_BASE64" | base64 --decode \
-            -o "$RUNNER_TEMP/AuthKey.p8"
-
-      # ── Pre-flight validation ─────────────────────────────────────────────
-      - name: Validate IPA against App Store Connect
-        run: |
-          xcrun altool --validate-app \
-            --type ios \
-            --file "$RUNNER_TEMP/export/$IPA_NAME" \
-            --apiKey "${{ secrets.ASC_KEY_ID }}" \
-            --apiIssuer "${{ secrets.ASC_ISSUER_ID }}" \
-            --output-format xml
-
-      # ── Upload with 3× retry ──────────────────────────────────────────────
-      - name: Upload to TestFlight (with retry)
-        run: |
-          for attempt in 1 2 3; do
-            echo "::group::Upload attempt $attempt"
-            if xcrun altool --upload-app \
-                --type ios \
-                --file "$RUNNER_TEMP/export/$IPA_NAME" \
-                --apiKey "${{ secrets.ASC_KEY_ID }}" \
-                --apiIssuer "${{ secrets.ASC_ISSUER_ID }}" \
-                --output-format xml; then
-              echo "::endgroup::"
-              echo "Upload succeeded on attempt $attempt"
-              exit 0
-            fi
-            echo "::endgroup::"
-            echo "Attempt $attempt failed — retrying in 30s..."
-            sleep 30
-          done
-          echo "Upload failed after 3 attempts"
-          exit 1
-
-      # ── Artifacts ─────────────────────────────────────────────────────────
-      - name: Upload IPA artifact
-        if: always()
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: EtherealVeil-ipa
-          path: ${{ runner.temp }}/export/*.ipa
+          name: release-assets
+          path: dist/
           retention-days: 14
 
-      - name: Upload xcarchive artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: EtherealVeil-xcarchive
-          path: ${{ runner.temp }}/EtherealVeil.xcarchive
-          retention-days: 14
-
-      # ── Cleanup ───────────────────────────────────────────────────────────
-      - name: Clean up keychain and API key
-        if: always()
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" || true
-          rm -f ~/.appstoreconnect/private_keys/AuthKey_*.p8 \
-                "$RUNNER_TEMP/AuthKey.p8" || true
-
-      # ── Job summary ───────────────────────────────────────────────────────
-      - name: Job summary
-        if: always()
-        run: |
-          {
-            echo "## TestFlight Upload Summary"
-            echo "| | |"
-            echo "|---|---|"
-            echo "| App           | \`EtherealVeil\` — World Class Scholars |"
-            echo "| Marketing ver | \`${{ steps.version.outputs.marketing }}\` |"
-            echo "| Build number  | \`${{ steps.version.outputs.build }}\` |"
-            echo "| Configuration | \`$CONFIGURATION\` |"
-            echo "| Team ID       | \`$TEAM_ID\` |"
-            echo "| Triggered by  | \`${{ github.event_name }}\` on \`${{ github.ref_name }}\` |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --generate-notes \
+            --title "EtherealVeil $GITHUB_REF_NAME"

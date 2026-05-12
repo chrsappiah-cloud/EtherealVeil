@@ -26,7 +26,9 @@ struct PlaylistSheet: View {
             }
             .background(Color.black)
             .navigationTitle("Playlist")
+            #if !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
         }
     }
 }

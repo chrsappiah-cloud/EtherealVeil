@@ -29,12 +29,7 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_16.3.app
 
       - name: Build for CodeQL
-        run: |
-          xcodebuild build \
-            -project EtherealVeil/EtherealVeil.xcodeproj \
-            -scheme EtherealVeil \
-            -destination "platform=iOS Simulator,name=iPhone 16" \
-            CODE_SIGNING_ALLOWED=NO
+        run: swift build --configuration debug
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
