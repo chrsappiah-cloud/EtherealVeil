@@ -57,9 +57,9 @@ jobs:
           ZIP="dist/EtherealVeil-Distribution-v${MV}.zip"
           NOTES="distribution/app-store/metadata/en-US/release_notes.txt"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$ZIP" distribution/EtherealVeil_Investor_Report.pdf Promotional/* --clobber
+            gh release upload "$TAG" "$ZIP" distribution/EtherealVeil_Investor_Brochure.pdf Promotional/Promo_*.png distribution/investor-brochure/pages/*.png --clobber
           else
-            gh release create "$TAG" "$ZIP" distribution/EtherealVeil_Investor_Report.pdf Promotional/* \
+            gh release create "$TAG" "$ZIP" distribution/EtherealVeil_Investor_Brochure.pdf Promotional/Promo_*.png distribution/investor-brochure/pages/*.png \
               --title "Ethereal Veil $TAG" \
               --notes-file "$NOTES"
           fi
@@ -70,6 +70,7 @@ jobs:
           name: distribution-bundle-v${{ steps.version.outputs.marketing }}
           path: |
             dist/*.zip
-            distribution/EtherealVeil_Investor_Report.pdf
-            Promotional/
+            distribution/EtherealVeil_Investor_Brochure.pdf
+            distribution/investor-brochure/pages/
+            Promotional/Promo_*.png
           retention-days: 90

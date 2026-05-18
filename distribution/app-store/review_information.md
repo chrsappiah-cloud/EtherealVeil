@@ -1,4 +1,6 @@
-# App Store Review Information — Ethereal Veil 1.0.1
+# App Store Review Information — Ethereal Veil 1.1.0
+
+Apple App ID: `6763116253` · Bundle: `com.worldclassscholars.etherealveil`
 
 ## Contact
 
@@ -9,7 +11,9 @@
 
 ## Demo account
 
-Not required. All features work without login.
+Not required. Core Draw, Paint, Library, Cloud, and Music work without login.
+
+**Studio Pro (optional):** Account tab → subscribe with a Sandbox Apple ID to test `studio.monthly` / `studio.yearly` IAP.
 
 ## Notes for reviewer
 
@@ -17,7 +21,8 @@ Not required. All features work without login.
 2. **Music** — Tap Play on the gold music strip. Playlist is available from the hero **Playlist** button. Audio streams royalty-free MP3 files from archive.org (ATS exception declared in Info.plist).
 3. **Library** — Saved sessions appear after using Save in Draw or Paint.
 4. **Cloud** — Backup toggles and manual checkpoints are UI state backed by SwiftData; CloudKit requires the configured container on a signed build.
-5. **Encryption** — `ITSAppUsesNonExemptEncryption` is `false` (HTTPS only, no custom cryptography).
+5. **Account** — Optional StoreKit subscriptions and admin access controls; no server login for basic studio use.
+6. **Encryption** — `ITSAppUsesNonExemptEncryption` is `false` (HTTPS only, no custom cryptography).
 
 ## Export compliance
 

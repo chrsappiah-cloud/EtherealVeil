@@ -23,9 +23,11 @@ xcodebuild archive \
 
 xcodebuild -exportArchive \
   -archivePath "$ROOT/build/EtherealVeil.xcarchive" \
-  -exportOptionsPlist EtherealVeil/ExportOptions.plist \
+  -exportOptionsPlist EtherealVeil/ExportOptions-export.plist \
   -exportPath "$ROOT/build/export" \
   -allowProvisioningUpdates
+
+echo "Upload: xcrun altool --upload-app --type ios --file build/export/EtherealVeil.ipa --apiKey \$ASC_KEY_ID --apiIssuer \$ASC_ISSUER_ID"
 
 echo "IPA ready: $ROOT/build/export/EtherealVeil.ipa"
 echo "Upload with: xcrun altool --upload-app --type ios --file build/export/EtherealVeil.ipa --apiKey \$ASC_KEY_ID --apiIssuer \$ASC_ISSUER_ID"

@@ -18,7 +18,9 @@ zip -r "$ZIP" \
   distribution/app-store/screenshots \
   distribution/app-store/review_information.md \
   distribution/app-store/connect \
-  distribution/EtherealVeil_Investor_Report.pdf \
+  distribution/EtherealVeil_Investor_Brochure.pdf \
+  distribution/investor-brochure/pages/ \
+  Promotional/Promo_*.png \
   Promotional \
   distribution/DISTRIBUTION.md \
   distribution/GITHUB_SECRETS_SETUP.md \

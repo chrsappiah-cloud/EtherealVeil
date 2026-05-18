@@ -24,7 +24,7 @@ env:
   SCHEME: EtherealVeil
   CONFIGURATION: Release
   INFO_PLIST: EtherealVeil/Resources/Info.plist
-  EXPORT_PLIST: EtherealVeil/ExportOptions.plist
+  EXPORT_PLIST: EtherealVeil/ExportOptions-export.plist
   TEAM_ID: TM2WG7HH96
 
 jobs:
@@ -76,7 +76,8 @@ jobs:
           path: |
             Promotional/
             distribution/app-store/screenshots/
-            distribution/EtherealVeil_Investor_Report.pdf
+            distribution/EtherealVeil_Investor_Brochure.pdf
+            distribution/investor-brochure/pages/
           retention-days: 14
 
   archive-and-upload:

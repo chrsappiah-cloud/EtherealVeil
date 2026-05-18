@@ -83,3 +83,42 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO
+
+  distribution-assets:
+    name: Promotional & Investor Assets
+    needs: validate
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install asset tooling
+        run: pip install -r scripts/requirements.txt
+
+      - name: Generate 5 promotional images
+        run: python3 scripts/generate_distribution_assets.py
+
+      - name: Generate 10-page investor brochure (PDF + pages)
+        run: python3 scripts/ethereal_veil_investor_report.py
+
+      - name: Verify promotional and brochure outputs
+        run: |
+          test -f Promotional/Promo_01_Hero.png
+          test -f Promotional/Promo_05_Investor_CI.png
+          test -f distribution/EtherealVeil_Investor_Brochure.pdf
+          test -f distribution/investor-brochure/pages/EtherealVeil_Brochure_Page_01.png
+          test -f distribution/investor-brochure/pages/EtherealVeil_Brochure_Page_10.png
+
+      - name: Upload investor bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: investor-promotional-assets
+          path: |
+            Promotional/Promo_*.png
+            distribution/EtherealVeil_Investor_Brochure.pdf
+            distribution/investor-brochure/pages/
+          retention-days: 30

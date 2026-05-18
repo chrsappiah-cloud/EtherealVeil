@@ -60,7 +60,8 @@ python3 scripts/ethereal_veil_investor_report.py
 |----------|----------|
 | IPA | GitHub Actions → EtherealVeil-ipa-* |
 | Distribution zip | `dist/EtherealVeil-Distribution-v*.zip` |
-| Investor PDF | `distribution/EtherealVeil_Investor_Report.pdf` |
+| Investor brochure (PDF + 10 page PNGs) | `distribution/EtherealVeil_Investor_Brochure.pdf`, `distribution/investor-brochure/pages/` |
+| Promotional images (5) | `Promotional/Promo_01_Hero.png` … `Promo_05_Investor_CI.png` |
 | Promotional images | `Promotional/` |
 | App Store metadata | `distribution/app-store/metadata/en-US/` |
 | Screenshots | `distribution/app-store/screenshots/en-US/` |

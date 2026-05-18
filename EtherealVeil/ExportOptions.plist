@@ -20,7 +20,7 @@
 
 	<!-- Symbol upload enables crash report symbolication in Xcode Organizer -->
 	<key>uploadSymbols</key>
-	<true/>
+	<false/>
 
 	<key>stripSwiftSymbols</key>
 	<true/>

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import math
+import shutil
 from pathlib import Path
 
 try:
@@ -14,7 +15,8 @@ except ImportError as exc:  # pragma: no cover
 
 ROOT = Path(__file__).resolve().parents[1]
 ICON_DIR = ROOT / "EtherealVeil/Assets.xcassets/AppIcon.appiconset"
-SHOT_DIR = ROOT / "distribution/app-store/screenshots/en-US"
+SHOT_DIR_EN_US = ROOT / "distribution/app-store/screenshots/en-US"
+SHOT_DIR_EN_AU = ROOT / "distribution/app-store/screenshots/en-AU"
 PROMO_DIR = ROOT / "Promotional"
 
 GOLD = (0.88, 0.69, 0.29)
@@ -140,7 +142,8 @@ def write_icon(name: str, image: Image.Image) -> None:
 
 def main() -> None:
     ICON_DIR.mkdir(parents=True, exist_ok=True)
-    SHOT_DIR.mkdir(parents=True, exist_ok=True)
+    for shot_dir in (SHOT_DIR_EN_US, SHOT_DIR_EN_AU):
+        shot_dir.mkdir(parents=True, exist_ok=True)
 
     icon = render_app_icon(1024)
     write_icon("AppIcon.png", icon)
@@ -154,28 +157,43 @@ def main() -> None:
         ("iphone_67_04_cloud.png", 1290, 2796, "CloudKit library and backups", "Saved sessions, favorites, and backup checkpoints."),
         ("iphone_67_05_account.png", 1290, 2796, "Account, payments & admin", "StoreKit Pro, admin grants, audit trail."),
     ]
-    for filename, w, h, headline, subtitle in frames:
-        path = SHOT_DIR / filename
-        render_screenshot(w, h, headline, subtitle).save(path, format="PNG")
-        print(f"Wrote {path}")
+    for shot_dir in (SHOT_DIR_EN_US, SHOT_DIR_EN_AU):
+        for filename, w, h, headline, subtitle in frames:
+            path = shot_dir / filename
+            render_screenshot(w, h, headline, subtitle).save(path, format="PNG")
+            print(f"Wrote {path}")
 
     PROMO_DIR.mkdir(parents=True, exist_ok=True)
     promo_specs = [
-        ("AppStore_iPhone_6.7.png", 1290, 2796, "Ethereal Veil Studio", "Draw · Paint · Music · Cloud · Pro"),
-        ("AppStore_iPhone_5.5.png", 1242, 2208, "Gold creative studio", "Subscriptions & admin access"),
-        ("AppStore_iPad_12.9.png", 2048, 2732, "Ethereal Veil for iPad", "Full studio on the large canvas"),
-        ("Feature_Banner_1920x1080.png", 1920, 1080, "Ethereal Veil — Investor Ready", "CI/CD · TestFlight · App Store"),
-        ("Social_Banner_1024x500.png", 1024, 500, "World Class Scholars presents Ethereal Veil", "Studio Pro from $4.99/mo"),
+        ("Promo_01_Hero.png", 1290, 2796, "Ethereal Veil Studio", "Draw · Paint · Music · Cloud · Pro"),
+        ("Promo_02_Draw_Paint.png", 1242, 2208, "Draw & Paint", "Gold brushes · SwiftData library"),
+        ("Promo_03_Music_Cloud.png", 2048, 2732, "Music & Cloud", "Classical playlist · CloudKit backup"),
+        ("Promo_04_Subscriptions.png", 1920, 1080, "Studio Pro", "$4.99/mo · $39.99/yr · Admin access"),
+        ("Promo_05_Investor_CI.png", 1024, 500, "Investor Ready", "CI/CD · TestFlight · App Store"),
+    ]
+    legacy_aliases = [
+        ("AppStore_iPhone_6.7.png", "Promo_01_Hero.png"),
+        ("AppStore_iPhone_5.5.png", "Promo_02_Draw_Paint.png"),
+        ("AppStore_iPad_12.9.png", "Promo_03_Music_Cloud.png"),
+        ("Feature_Banner_1920x1080.png", "Promo_04_Subscriptions.png"),
+        ("Social_Banner_1024x500.png", "Promo_05_Investor_CI.png"),
     ]
     for name, w, h, headline, subtitle in promo_specs:
         path = PROMO_DIR / name
         render_screenshot(w, h, headline, subtitle).save(path, format="PNG")
         print(f"Wrote {path}")
 
+    for alias, source in legacy_aliases:
+        src = PROMO_DIR / source
+        if src.exists():
+            shutil.copy2(src, PROMO_DIR / alias)
+            print(f"Wrote {PROMO_DIR / alias} (alias)")
+
     manifest = {
         "version": "1.1.0",
         "icons": ["AppIcon.png", "AppIcon-Dark.png", "AppIcon-Tinted.png"],
         "screenshots": [f[0] for f in frames],
+        "promotional": [p[0] for p in promo_specs],
     }
     manifest_path = ROOT / "distribution/app-store/asset_manifest.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)

@@ -9,13 +9,17 @@ lint:
 xcodegen:
 	xcodegen generate
 
-assets:
-	pip install -r scripts/requirements.txt
-	python3 scripts/generate_distribution_assets.py
+PY ?= python3
 
-investor:
-	pip install -r scripts/requirements.txt
-	python3 scripts/ethereal_veil_investor_report.py
+assets:
+	$(PY) -m pip install -r scripts/requirements.txt 2>/dev/null || true
+	$(PY) scripts/generate_distribution_assets.py
+
+investor: assets
+	$(PY) scripts/ethereal_veil_investor_report.py
+
+investor-desktop: investor
+	@echo "Desktop: $(HOME)/Desktop/EtherealVeil-Investor"
 
 bundle: assets investor
 	./scripts/bundle_distribution.sh dist

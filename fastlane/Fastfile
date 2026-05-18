@@ -37,13 +37,48 @@ platform :ios do
 
   desc "Upload metadata and screenshots (no binary)"
   lane :metadata do
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_PATH"],
+      is_key_content_base64: ENV["ASC_PRIVATE_KEY_BASE64"].to_s.length > 0,
+      key_content: ENV["ASC_PRIVATE_KEY_BASE64"]
+    )
     deliver(
+      api_key: api_key,
+      app_identifier: "com.worldclassscholars.etherealveil",
+      app_version: ENV.fetch("APP_VERSION", "1.1.0"),
       skip_binary_upload: true,
       skip_screenshots: false,
       force: true,
       precheck_include_in_app_purchases: false,
-      metadata_path: "./distribution/app-store/metadata",
-      screenshots_path: "./distribution/app-store/screenshots"
+      metadata_path: "../distribution/app-store/metadata",
+      screenshots_path: "../distribution/app-store/screenshots"
+    )
+  end
+
+  desc "Submit latest build for App Store review"
+  lane :submit_review do
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_PATH"],
+      is_key_content_base64: ENV["ASC_PRIVATE_KEY_BASE64"].to_s.length > 0,
+      key_content: ENV["ASC_PRIVATE_KEY_BASE64"]
+    )
+    deliver(
+      api_key: api_key,
+      app_identifier: "com.worldclassscholars.etherealveil",
+      app_version: ENV.fetch("APP_VERSION", "1.1.0"),
+      skip_binary_upload: true,
+      skip_metadata: false,
+      skip_screenshots: false,
+      submit_for_review: true,
+      automatic_release: false,
+      force: true,
+      precheck_include_in_app_purchases: false,
+      metadata_path: "../distribution/app-store/metadata",
+      screenshots_path: "../distribution/app-store/screenshots"
     )
   end
 end
