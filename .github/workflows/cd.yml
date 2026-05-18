@@ -25,7 +25,6 @@ env:
   CONFIGURATION: Release
   INFO_PLIST: EtherealVeil/Resources/Info.plist
   EXPORT_PLIST: EtherealVeil/ExportOptions.plist
-  IPA_PATH: ${{ runner.temp }}/export/EtherealVeil.ipa
   TEAM_ID: TM2WG7HH96
 
 jobs:
@@ -179,24 +178,24 @@ jobs:
           echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
 
       - name: Validate IPA (App Store Connect)
-        if: ${{ inputs.skip_upload != true }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.skip_upload != true }}
         run: |
           xcrun altool --validate-app \
             --type ios \
-            --file "$IPA_PATH" \
+            --file "$RUNNER_TEMP/export/EtherealVeil.ipa" \
             --apiKey "${{ secrets.ASC_KEY_ID }}" \
             --apiIssuer "${{ secrets.ASC_ISSUER_ID }}" \
             --output-format xml
 
       - name: Upload to TestFlight
-        if: ${{ inputs.skip_upload != true }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.skip_upload != true }}
         uses: Apple-Actions/upload-testflight-build@v3
         with:
           app-path: ${{ runner.temp }}/export/EtherealVeil.ipa
           app-type: ios
           issuer-id: ${{ secrets.ASC_ISSUER_ID }}
           api-key-id: ${{ secrets.ASC_KEY_ID }}
-          api-private-key: ${{ runner.temp }}/AuthKey.p8
+          api-private-key: ${{ env.ASC_KEY_PATH }}
 
       - name: Bundle distribution zip
         run: |
@@ -230,7 +229,7 @@ jobs:
             echo "| Field | Value |"
             echo "|---|---|"
             echo "| Version | \`${{ steps.version.outputs.marketing }}\` (\`${{ steps.version.outputs.build }}\`) |"
-            echo "| Upload | \`${{ inputs.skip_upload == true && 'skipped' || 'completed' }}\` |"
+            echo "| Upload | \`${{ (github.event_name == 'workflow_dispatch' && inputs.skip_upload == true) && 'skipped' || 'completed' }}\` |"
             echo "| Team | \`$TEAM_ID\` |"
             echo "| Trigger | \`${{ github.event_name }}\` |"
             echo ""
