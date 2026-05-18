@@ -81,5 +81,5 @@ jobs:
             -project EtherealVeil.xcodeproj \
             -scheme EtherealVeil \
             -configuration Release \
-            -destination "generic/platform=iOS" \
+            -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO
