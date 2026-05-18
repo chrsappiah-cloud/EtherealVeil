@@ -1,0 +1,5 @@
+• Gold studio UI with Draw, Paint, Library, and Cloud tabs
+• Save drawing and painting sessions with stroke counts
+• Classical music player with playlist sheet and favorites
+• CloudKit sync toggles and iCloud backup checkpoints
+• Fan brush rendering fix and StudioStore test coverage

@@ -11,16 +11,75 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
-    name: SPM Build & Test
+  validate:
+    name: Lint & Validate
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Lint plists
+        run: |
+          plutil -lint EtherealVeil/Resources/Info.plist
+          plutil -lint EtherealVeil/ExportOptions.plist
+          plutil -lint EtherealVeil/EtherealVeil.entitlements
+
+      - name: Validate workflow YAML
+        run: |
+          brew install yamllint
+          yamllint .github/workflows/
+
+      - name: SwiftLint
+        run: |
+          brew install swiftlint
+          swiftlint lint --strict
+
+  build-and-test:
+    name: SPM Build & Test
+    needs: validate
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
       - name: Resolve dependencies
         run: swift package resolve
+
       - name: Build
         run: swift build --configuration debug
+
       - name: Run tests
         run: swift test --configuration debug --parallel
+
+  xcode-build:
+    name: Xcode Release Build
+    needs: build-and-test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build iOS app (Release, no signing)
+        run: |
+          xcodebuild build \
+            -project EtherealVeil.xcodeproj \
+            -scheme EtherealVeil \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            CODE_SIGNING_ALLOWED=NO

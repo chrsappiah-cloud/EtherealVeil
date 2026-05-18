@@ -1,0 +1,1 @@
+New in 1.0.1: gold studio workspace, session library, CloudKit backup controls, and a refreshed classical playlist strip.

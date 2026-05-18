@@ -300,14 +300,18 @@ struct CloudBackupView: View {
                         ToggleRow(
                             title: "CloudKit Sync",
                             subtitle: "Keep the SwiftData store synced through the CloudKit-backed container.",
-                            isOn: settings.cloudKitSyncEnabled,
-                            action: onCloudKitToggle
+                            isOn: Binding(
+                                get: { settings.cloudKitSyncEnabled },
+                                set: onCloudKitToggle
+                            )
                         )
                         ToggleRow(
                             title: "iCloud Recovery Backup",
                             subtitle: "Record recovery-ready iCloud checkpoints from inside the app.",
-                            isOn: settings.iCloudBackupEnabled,
-                            action: onICloudToggle
+                            isOn: Binding(
+                                get: { settings.iCloudBackupEnabled },
+                                set: onICloudToggle
+                            )
                         )
                     }
                     .padding(16)
@@ -427,11 +431,10 @@ struct CloudBackupView: View {
 private struct ToggleRow: View {
     let title: String
     let subtitle: String
-    let isOn: Bool
-    let action: (Bool) -> Void
+    @Binding var isOn: Bool
 
     var body: some View {
-        Toggle(isOn: Binding(get: { isOn }, set: action)) {
+        Toggle(isOn: $isOn) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))

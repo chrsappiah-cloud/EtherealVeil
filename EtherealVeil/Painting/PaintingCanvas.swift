@@ -64,12 +64,12 @@ struct PaintingCanvas: View {
             }
 
         case .fan:
+            let center = strokeCentroid(stroke)
             for i in 0..<count {
                 var ctx = context
                 ctx.opacity = stroke.opacity * 0.4
                 let angle = Double(i - count / 2) * 0.08
-                let transform = CGAffineTransform(rotationAngle: angle)
-                let rotated = stroke.path.applying(transform)
+                let rotated = rotatePath(stroke.path, around: center, by: angle)
                 ctx.stroke(rotated, with: .color(stroke.color),
                            style: StrokeStyle(lineWidth: max(1, stroke.size / CGFloat(count)),
                                               lineCap: .round))
@@ -83,6 +83,26 @@ struct PaintingCanvas: View {
                                           lineCap: .round, lineJoin: .round))
         }
     }
+}
+
+private func strokeCentroid(_ stroke: PaintStroke) -> CGPoint {
+    guard !stroke.points.isEmpty else {
+        let bounds = stroke.path.boundingRect
+        return CGPoint(x: bounds.midX, y: bounds.midY)
+    }
+
+    let sum = stroke.points.reduce(CGPoint.zero) { partial, point in
+        CGPoint(x: partial.x + point.x, y: partial.y + point.y)
+    }
+    let count = CGFloat(stroke.points.count)
+    return CGPoint(x: sum.x / count, y: sum.y / count)
+}
+
+private func rotatePath(_ path: Path, around center: CGPoint, by angle: Double) -> Path {
+    var transform = CGAffineTransform(translationX: center.x, y: center.y)
+    transform = transform.rotated(by: angle)
+    transform = transform.translatedBy(x: -center.x, y: -center.y)
+    return path.applying(transform)
 }
 
 private extension Path {
