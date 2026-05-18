@@ -132,6 +132,7 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ steps.version.outputs.build }}" "$INFO_PLIST"
 
       - name: Import Apple Distribution certificate
+        id: codesign
         uses: Apple-Actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
@@ -166,6 +167,7 @@ jobs:
       - name: Archive (Release)
         env:
           PROFILE_UUID: ${{ steps.profile.outputs.uuid }}
+          KEYCHAIN_PATH: ${{ steps.codesign.outputs.keychain-path }}
         run: |
           set -euo pipefail
           xcodebuild archive \
@@ -178,7 +180,7 @@ jobs:
             CODE_SIGN_IDENTITY="Apple Distribution" \
             PROVISIONING_PROFILE="$PROFILE_UUID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
-            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH"
+            OTHER_CODE_SIGN_FLAGS="--keychain ${KEYCHAIN_PATH}"
 
       - name: Export IPA
         run: |

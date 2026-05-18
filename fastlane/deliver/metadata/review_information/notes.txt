@@ -1,0 +1,1 @@
+Open Draw or Paint and sketch on the canvas. Tap Play for classical music from archive.org. Account tab offers optional Studio Pro StoreKit subscriptions (sandbox testable). No login required for core features. ITSAppUsesNonExemptEncryption is false.
