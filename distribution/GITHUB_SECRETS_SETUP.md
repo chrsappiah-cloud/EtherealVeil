@@ -3,7 +3,10 @@
 ## Quick start (one-time, on your Mac)
 
 ```bash
-# 1. Export base64 values to paste into GitHub (or use step 2)
+# Automated: discover local .p8, profile, keychain cert and push all secrets
+./scripts/generate_github_secrets.sh
+
+# Manual: export base64 values to paste into GitHub (or use step 2)
 P12_PATH=~/Downloads/distribution.p12 \
 PP_PATH=~/Downloads/EtherealVeil_AppStore.mobileprovision \
 P8_PATH=~/Downloads/AuthKey_XXXXXX.p8 \
