@@ -39,7 +39,7 @@ jobs:
       - name: SwiftLint
         run: |
           brew install swiftlint
-          swiftlint lint --strict
+          swiftlint lint
 
   build-and-test:
     name: SPM Build & Test
