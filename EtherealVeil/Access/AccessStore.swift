@@ -34,10 +34,25 @@ enum AccessStore {
     }
 
     static func currentUser(in context: ModelContext) throws -> StudioUser? {
+        var sessionDescriptor = FetchDescriptor<StudioUser>(
+            predicate: #Predicate { $0.isCurrentSession == true }
+        )
+        sessionDescriptor.fetchLimit = 1
+        if let active = try context.fetch(sessionDescriptor).first {
+            return active
+        }
+
         guard let idString = UserDefaults.standard.string(forKey: currentUserKey),
               let id = UUID(uuidString: idString) else { return nil }
-        let descriptor = FetchDescriptor<StudioUser>(
+        let idDescriptor = FetchDescriptor<StudioUser>(
             predicate: #Predicate { $0.id == id }
+        )
+        return try context.fetch(idDescriptor).first
+    }
+
+    static func adminUser(in context: ModelContext) throws -> StudioUser? {
+        let descriptor = FetchDescriptor<StudioUser>(
+            predicate: #Predicate { $0.role == "admin" }
         )
         return try context.fetch(descriptor).first
     }

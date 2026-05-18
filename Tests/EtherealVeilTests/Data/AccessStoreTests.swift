@@ -40,7 +40,7 @@ final class AccessStoreTests: XCTestCase {
 
     func testAdminCanGrantPro() throws {
         try AccessStore.ensureDefaultAdmin(in: context)
-        let admin = try AccessStore.currentUser(in: context)!
+        let admin = try XCTUnwrap(try AccessStore.adminUser(in: context))
         let member = try AccessStore.signIn(
             email: "member@example.com",
             displayName: "Member",
