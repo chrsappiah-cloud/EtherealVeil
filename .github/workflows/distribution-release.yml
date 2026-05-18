@@ -1,0 +1,75 @@
+name: Distribution — Release Bundle
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bundle-and-release:
+    name: Generate assets & GitHub Release
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Generate promotional images
+        run: python3 scripts/generate_distribution_assets.py
+
+      - name: Generate investor report PDF
+        run: python3 scripts/ethereal_veil_investor_report.py
+
+      - name: Resolve version from tag
+        id: version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "marketing=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            MV=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" EtherealVeil/Resources/Info.plist)
+            echo "marketing=$MV" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bundle distribution zip
+        run: |
+          chmod +x scripts/bundle_distribution.sh
+          ./scripts/bundle_distribution.sh dist "${{ steps.version.outputs.marketing }}"
+
+      - name: Create GitHub Release with distribution assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          MV="${{ steps.version.outputs.marketing }}"
+          ZIP="dist/EtherealVeil-Distribution-v${MV}.zip"
+          NOTES="distribution/app-store/metadata/en-US/release_notes.txt"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP" distribution/EtherealVeil_Investor_Report.pdf Promotional/* --clobber
+          else
+            gh release create "$TAG" "$ZIP" distribution/EtherealVeil_Investor_Report.pdf Promotional/* \
+              --title "Ethereal Veil $TAG" \
+              --notes-file "$NOTES"
+          fi
+
+      - name: Upload distribution bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: distribution-bundle-v${{ steps.version.outputs.marketing }}
+          path: |
+            dist/*.zip
+            distribution/EtherealVeil_Investor_Report.pdf
+            Promotional/
+          retention-days: 90

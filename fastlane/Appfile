@@ -1,0 +1,3 @@
+app_identifier("com.worldclassscholars.etherealveil")
+apple_id(ENV["APPLE_ID"]) # optional: set APPLE_ID for deliver
+team_id("TM2WG7HH96")

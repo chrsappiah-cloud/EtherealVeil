@@ -1,0 +1,20 @@
+{
+  "bundleId": "com.worldclassscholars.etherealveil",
+  "subscriptionGroup": "Studio Pro",
+  "products": [
+    {
+      "productId": "com.worldclassscholars.etherealveil.studio.monthly",
+      "type": "auto_renewable_subscription",
+      "referenceName": "Studio Pro Monthly",
+      "priceTier": "$4.99",
+      "duration": "1 month"
+    },
+    {
+      "productId": "com.worldclassscholars.etherealveil.studio.yearly",
+      "type": "auto_renewable_subscription",
+      "referenceName": "Studio Pro Yearly",
+      "priceTier": "$39.99",
+      "duration": "1 year"
+    }
+  ]
+}

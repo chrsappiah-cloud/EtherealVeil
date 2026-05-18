@@ -7,9 +7,14 @@ on:
   workflow_dispatch:
     inputs:
       marketing_version:
-        description: "Marketing version (e.g. 1.0.1). Leave blank to read from Info.plist."
+        description: "Marketing version (e.g. 1.1.0). Blank = Info.plist."
         required: false
         type: string
+      skip_upload:
+        description: "Archive and export only (skip TestFlight upload)"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,7 +25,7 @@ env:
   CONFIGURATION: Release
   INFO_PLIST: EtherealVeil/Resources/Info.plist
   EXPORT_PLIST: EtherealVeil/ExportOptions.plist
-  IPA_NAME: EtherealVeil.ipa
+  IPA_PATH: ${{ runner.temp }}/export/EtherealVeil.ipa
   TEAM_ID: TM2WG7HH96
 
 jobs:
@@ -32,6 +37,19 @@ jobs:
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install asset tooling
+        run: pip install -r scripts/requirements.txt
+
+      - name: Generate distribution images + investor PDF
+        run: |
+          python3 scripts/generate_distribution_assets.py
+          python3 scripts/ethereal_veil_investor_report.py
 
       - name: Generate Xcode project
         run: |
@@ -45,32 +63,48 @@ jobs:
           plutil -lint EtherealVeil/EtherealVeil.entitlements
 
       - name: SwiftLint
-        run: |
-          brew install swiftlint
-          swiftlint lint
+        run: brew install swiftlint && swiftlint lint
 
       - name: SPM tests
         run: |
           swift package resolve
           swift test --configuration release --parallel
 
+      - name: Upload distribution bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: distribution-assets-prerelease
+          path: |
+            Promotional/
+            distribution/app-store/screenshots/
+            distribution/EtherealVeil_Investor_Report.pdf
+          retention-days: 14
+
   archive-and-upload:
     name: Archive & Upload to TestFlight
     needs: quality-gate
     runs-on: macos-15
     environment: production
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.3.app
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Validate distribution secrets
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
+        run: |
+          chmod +x scripts/validate_distribution_secrets.sh
+          ./scripts/validate_distribution_secrets.sh
 
       - name: Generate Xcode project
         run: |
@@ -92,36 +126,28 @@ jobs:
           echo "marketing=$MV" >> "$GITHUB_OUTPUT"
           echo "build=$BN" >> "$GITHUB_OUTPUT"
 
-      - name: Stamp Info.plist with version + build
+      - name: Stamp Info.plist
         run: |
-          set -euo pipefail
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version.outputs.marketing }}" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ steps.version.outputs.build }}" "$INFO_PLIST"
 
-      - name: Import code-signing assets
+      - name: Import Apple Distribution certificate
+        uses: Apple-Actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.P12_PASSWORD }}
+          keychain: app-signing
+          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+      - name: Install provisioning profile (UUID path)
         env:
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
-          CERT_PATH=$RUNNER_TEMP/build_certificate.p12
-          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+          PP_PATH="$RUNNER_TEMP/EtherealVeil.mobileprovision"
           echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security import "$CERT_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
-
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
+          chmod +x scripts/install_provisioning_profile.sh
+          ./scripts/install_provisioning_profile.sh "$PP_PATH"
 
       - name: Archive (Release)
         run: |
@@ -143,67 +169,70 @@ jobs:
             -exportOptionsPlist "$EXPORT_PLIST" \
             -exportPath "$RUNNER_TEMP/export" \
             -allowProvisioningUpdates
+          ls -lh "$RUNNER_TEMP/export"
 
-      - name: Prepare App Store Connect API key
+      - name: Prepare App Store Connect API key file
         env:
           ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
         run: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo -n "$ASC_PRIVATE_KEY_BASE64" | base64 --decode \
-            > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+          echo -n "$ASC_PRIVATE_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
 
-      - name: Validate IPA against App Store Connect
+      - name: Validate IPA (App Store Connect)
+        if: ${{ inputs.skip_upload != true }}
         run: |
           xcrun altool --validate-app \
             --type ios \
-            --file "$RUNNER_TEMP/export/$IPA_NAME" \
+            --file "$IPA_PATH" \
             --apiKey "${{ secrets.ASC_KEY_ID }}" \
             --apiIssuer "${{ secrets.ASC_ISSUER_ID }}" \
             --output-format xml
 
-      - name: Upload to TestFlight (with retry)
+      - name: Upload to TestFlight
+        if: ${{ inputs.skip_upload != true }}
+        uses: Apple-Actions/upload-testflight-build@v3
+        with:
+          app-path: ${{ runner.temp }}/export/EtherealVeil.ipa
+          app-type: ios
+          issuer-id: ${{ secrets.ASC_ISSUER_ID }}
+          api-key-id: ${{ secrets.ASC_KEY_ID }}
+          api-private-key: ${{ runner.temp }}/AuthKey.p8
+
+      - name: Bundle distribution zip
         run: |
-          for attempt in 1 2 3; do
-            if xcrun altool --upload-app \
-                --type ios \
-                --file "$RUNNER_TEMP/export/$IPA_NAME" \
-                --apiKey "${{ secrets.ASC_KEY_ID }}" \
-                --apiIssuer "${{ secrets.ASC_ISSUER_ID }}" \
-                --output-format xml; then
-              exit 0
-            fi
-            sleep 30
-          done
-          exit 1
+          chmod +x scripts/bundle_distribution.sh
+          ./scripts/bundle_distribution.sh dist "${{ steps.version.outputs.marketing }}"
 
       - name: Upload IPA artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: EtherealVeil-ipa-v${{ steps.version.outputs.marketing }}
+          name: EtherealVeil-ipa-v${{ steps.version.outputs.marketing }}-b${{ steps.version.outputs.build }}
           path: ${{ runner.temp }}/export/*.ipa
-          retention-days: 14
+          retention-days: 30
 
-      - name: Upload distribution screenshots
+      - name: Upload full distribution bundle
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: app-store-screenshots
-          path: distribution/app-store/screenshots/
-          retention-days: 30
+          name: EtherealVeil-distribution-v${{ steps.version.outputs.marketing }}
+          path: |
+            dist/*.zip
+            distribution/
+            Promotional/
+          retention-days: 90
 
       - name: Job summary
         if: always()
         run: |
           {
-            echo "## TestFlight Upload Summary"
+            echo "## TestFlight / Distribution"
             echo "| Field | Value |"
             echo "|---|---|"
-            echo "| Marketing version | \`${{ steps.version.outputs.marketing }}\` |"
-            echo "| Build number | \`${{ steps.version.outputs.build }}\` |"
-            echo "| Team ID | \`$TEAM_ID\` |"
-            echo "| Trigger | \`${{ github.event_name }}\` on \`${{ github.ref_name }}\` |"
+            echo "| Version | \`${{ steps.version.outputs.marketing }}\` (\`${{ steps.version.outputs.build }}\`) |"
+            echo "| Upload | \`${{ inputs.skip_upload == true && 'skipped' || 'completed' }}\` |"
+            echo "| Team | \`$TEAM_ID\` |"
+            echo "| Trigger | \`${{ github.event_name }}\` |"
+            echo ""
+            echo "Download **EtherealVeil-distribution** artifact for screenshots, metadata, and investor PDF."
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Clean up keychain
-        if: always()
-        run: security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" || true

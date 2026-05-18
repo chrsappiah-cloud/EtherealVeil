@@ -1,82 +1,81 @@
-# Ethereal Veil — Apple Distribution Guide
+# Ethereal Veil — Distribution Automation
 
 ## Version
 
-- **Marketing:** 1.0.1
-- **Build:** 101 (CI stamps `100 + run_number` on release tags)
+- **Marketing:** 1.1.0
+- **Bundle ID:** `com.worldclassscholars.etherealveil`
+- **Team:** `TM2WG7HH96`
 
-## Bundle ID
+## Fully automated pipeline
 
-`com.worldclassscholars.etherealveil`
-
-## Team
-
-`TM2WG7HH96` (World Class Scholars)
-
-## CI (every push / PR)
-
-Workflow: `.github/workflows/ci.yml`
-
-- XcodeGen project generation
-- Plist lint, SwiftLint (strict), YAML validation
-- `swift test` (87 tests)
-- Unsigned Release `xcodebuild build` for iOS
-
-## CD (TestFlight / App Store Connect)
-
-Workflow: `.github/workflows/cd.yml`
-
-**Trigger:** push tag `v1.0.2` (semver) or **workflow_dispatch**.
-
-### Required GitHub secrets
-
-| Secret | Purpose |
-|--------|---------|
-| `BUILD_CERTIFICATE_BASE64` | Apple Distribution `.p12` (base64) |
-| `P12_PASSWORD` | Certificate password |
-| `BUILD_PROVISION_PROFILE_BASE64` | App Store provisioning profile (base64) |
-| `KEYCHAIN_PASSWORD` | Ephemeral CI keychain password |
-| `ASC_KEY_ID` | App Store Connect API key ID |
-| `ASC_ISSUER_ID` | App Store Connect issuer ID |
-| `ASC_PRIVATE_KEY_BASE64` | `.p8` API key (base64) |
-
-### Required GitHub environment
-
-Create environment **`production`** (Settings → Environments) and attach the secrets above.
-
-## Regenerate assets
-
-```bash
-pip install pillow
-python3 scripts/generate_distribution_assets.py
+```mermaid
+flowchart LR
+  tag[Git tag vX.Y.Z] --> ci[CI quality gate]
+  tag --> rel[Distribution Release]
+  ci --> cd[CD TestFlight]
+  cd --> tf[TestFlight]
+  rel --> gh[GitHub Release zip]
+  cd --> art[IPA + metadata artifacts]
 ```
 
-Outputs:
+### On every semver tag
 
-- `EtherealVeil/Assets.xcassets/AppIcon.appiconset/*.png`
-- `distribution/app-store/screenshots/en-US/iphone_67_*.png`
-- `distribution/app-store/asset_manifest.json`
+1. **distribution-release.yml** — regenerates promo images + investor PDF, publishes GitHub Release with zip bundle.
+2. **cd.yml** — runs tests, archives signed IPA, validates, uploads to TestFlight, uploads distribution artifacts.
 
-## App Store Connect checklist
-
-1. Upload build via CD or Xcode Organizer.
-2. Paste metadata from `distribution/app-store/metadata/en-US/`.
-3. Upload screenshots from `distribution/app-store/screenshots/en-US/`.
-4. Complete review notes from `distribution/app-store/review_information.md`.
-5. Submit for review when TestFlight beta is approved.
-
-## Local archive (signed machine)
+### Manual triggers
 
 ```bash
-xcodegen generate
-xcodebuild archive \
-  -project EtherealVeil.xcodeproj \
-  -scheme EtherealVeil \
-  -configuration Release \
-  -destination "generic/platform=iOS" \
-  -archivePath build/EtherealVeil.xcarchive
-xcodebuild -exportArchive \
-  -archivePath build/EtherealVeil.xcarchive \
-  -exportOptionsPlist EtherealVeil/ExportOptions.plist \
-  -exportPath build/export
+# Validate secrets only
+gh workflow run "Distribution — Validate Setup"
+
+# TestFlight without upload (archive + export only)
+gh workflow run "CD — TestFlight (Production)" -f skip_upload=true
+
+# TestFlight with custom version
+gh workflow run "CD — TestFlight (Production)" -f marketing_version=1.1.0
+```
+
+## One-time secret setup
+
+See [GITHUB_SECRETS_SETUP.md](GITHUB_SECRETS_SETUP.md) and run:
+
+```bash
+./scripts/export_signing_secrets.sh   # print values
+./scripts/push_github_secrets.sh      # upload via gh CLI
+```
+
+## Regenerate assets locally
+
+```bash
+pip install -r scripts/requirements.txt
+python3 scripts/generate_distribution_assets.py
+python3 scripts/ethereal_veil_investor_report.py
+./scripts/bundle_distribution.sh dist
+```
+
+## Outputs
+
+| Artifact | Location |
+|----------|----------|
+| IPA | GitHub Actions → EtherealVeil-ipa-* |
+| Distribution zip | `dist/EtherealVeil-Distribution-v*.zip` |
+| Investor PDF | `distribution/EtherealVeil_Investor_Report.pdf` |
+| Promotional images | `Promotional/` |
+| App Store metadata | `distribution/app-store/metadata/en-US/` |
+| Screenshots | `distribution/app-store/screenshots/en-US/` |
+
+## StoreKit (local IAP testing)
+
+Open `EtherealVeil/Products.storekit` in Xcode → Scheme → Run → Options → StoreKit Configuration.
+
+## Fastlane (optional)
+
+```bash
+bundle install
+export ASC_KEY_PATH=path/to/AuthKey.p8
+export ASC_KEY_ID=...
+export ASC_ISSUER_ID=...
+bundle exec fastlane beta      # TestFlight upload
+bundle exec fastlane metadata # screenshots + metadata only
 ```

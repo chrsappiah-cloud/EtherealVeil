@@ -1,0 +1,71 @@
+{
+  "identifier" : "EtherealVeilProducts",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_applicationInternalID" : "etherealveil",
+    "_developerTeamID" : "TM2WG7HH96",
+    "_lastSynchronizedDate" : 768844800
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "studio_pro",
+      "localizations" : [
+        {
+          "description" : "Unlock paint, cloud, full music, and unlimited saves.",
+          "displayName" : "Studio Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "Studio Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "studio_monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Monthly Studio Pro access",
+              "displayName" : "Studio Pro Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.worldclassscholars.etherealveil.studio.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Studio Pro Monthly",
+          "subscriptionGroupID" : "studio_pro",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "39.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "studio_yearly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Yearly Studio Pro access",
+              "displayName" : "Studio Pro Yearly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.worldclassscholars.etherealveil.studio.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Studio Pro Yearly",
+          "subscriptionGroupID" : "studio_pro",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
