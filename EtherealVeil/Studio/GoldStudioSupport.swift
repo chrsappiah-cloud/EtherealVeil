@@ -9,6 +9,7 @@ enum StudioTab: String, CaseIterable, Identifiable {
     case paint
     case library
     case cloud
+    case account
 
     var id: String { rawValue }
 
@@ -22,6 +23,8 @@ enum StudioTab: String, CaseIterable, Identifiable {
             "Library"
         case .cloud:
             "Cloud"
+        case .account:
+            "Account"
         }
     }
 
@@ -35,6 +38,8 @@ enum StudioTab: String, CaseIterable, Identifiable {
             "square.stack.3d.up.fill"
         case .cloud:
             "icloud.and.arrow.up.fill"
+        case .account:
+            "person.crop.circle.fill"
         }
     }
 }

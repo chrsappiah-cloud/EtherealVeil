@@ -1,4 +1,5 @@
-• Gold studio UI with Draw, Paint, Library, and Cloud tabs
+• Account tab with StoreKit subscriptions and admin access control
+• Gold studio UI with Draw, Paint, Library, Cloud, and Account tabs
 • Save drawing and painting sessions with stroke counts
 • Classical music player with playlist sheet and favorites
 • CloudKit sync toggles and iCloud backup checkpoints

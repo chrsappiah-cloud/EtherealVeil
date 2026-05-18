@@ -69,6 +69,66 @@ final class BackupSnapshot {
     }
 }
 
+// MARK: - Studio User (access + payments)
+
+@Model
+final class StudioUser {
+    var id: UUID
+    var email: String
+    var displayName: String
+    var role: String
+    var accessTier: String
+    var subscriptionStatus: String
+    var isActive: Bool
+    var subscriptionExpiresAt: Date?
+    var manualPaymentNote: String
+    var isCurrentSession: Bool
+    var createdAt: Date
+    var updatedAt: Date
+
+    init(
+        email: String,
+        displayName: String,
+        role: StudioUserRole = .user,
+        accessTier: StudioAccessTier = .free,
+        subscriptionStatus: StudioSubscriptionStatus = .none
+    ) {
+        self.id = UUID()
+        self.email = email.lowercased()
+        self.displayName = displayName
+        self.role = role.rawValue
+        self.accessTier = accessTier.rawValue
+        self.subscriptionStatus = subscriptionStatus.rawValue
+        self.isActive = true
+        self.subscriptionExpiresAt = nil
+        self.manualPaymentNote = ""
+        self.isCurrentSession = false
+        self.createdAt = .now
+        self.updatedAt = .now
+    }
+}
+
+// MARK: - Access audit log (admin actions)
+
+@Model
+final class AccessAuditLog {
+    var id: UUID
+    var actorEmail: String
+    var targetEmail: String
+    var action: String
+    var detail: String
+    var createdAt: Date
+
+    init(actorEmail: String, targetEmail: String, action: String, detail: String) {
+        self.id = UUID()
+        self.actorEmail = actorEmail
+        self.targetEmail = targetEmail
+        self.action = action
+        self.detail = detail
+        self.createdAt = .now
+    }
+}
+
 // MARK: - App Settings
 
 @Model
@@ -113,6 +173,8 @@ struct PersistenceController {
             FavoriteTrack.self,
             BackupSnapshot.self,
             AppSettings.self,
+            StudioUser.self,
+            AccessAuditLog.self,
         ])
         let configName = inMemory ? UUID().uuidString : "EtherealVeilStore"
         let config = ModelConfiguration(

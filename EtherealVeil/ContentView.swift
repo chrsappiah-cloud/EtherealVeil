@@ -13,6 +13,8 @@ struct ContentView: View {
     @Query private var settingsRecords: [AppSettings]
 
     @State private var musicPlayer = MusicPlayer()
+    @State private var accessManager = AccessControlManager()
+    @State private var paymentManager = PaymentManager()
     @State private var selectedTab: StudioTab = .draw
     @State private var showPlaylist = false
     @State private var errorMessage = ""
@@ -36,7 +38,10 @@ struct ContentView: View {
             .padding(.vertical, 10)
             .preferredColorScheme(.dark)
             .task {
-                await prepareSettings()
+                await prepareStudio()
+            }
+            .sheet(isPresented: $accessManager.showPaywall) {
+                PaywallSheet(access: accessManager, payments: paymentManager)
             }
             .sheet(isPresented: $showPlaylist) {
                 PlaylistSheet(
@@ -52,6 +57,7 @@ struct ContentView: View {
             }
         }
         .onChange(of: selectedTab) { _, tab in
+            gateTabSelection(tab)
             if tab == .draw || tab == .paint,
                !musicPlayer.isPlaying,
                currentSettings?.autoPlayMusic == true,
@@ -92,7 +98,7 @@ struct ContentView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 6) {
-                    Text("Cloud Ready")
+                    Text(accessManager.accessBadge)
                         .font(.caption.weight(.bold))
                         .foregroundStyle(.black)
                         .padding(.horizontal, 12)
@@ -114,7 +120,10 @@ struct ContentView: View {
                     selectedTab = .library
                 }
                 heroActionButton(title: "Backup", icon: "icloud.and.arrow.up.fill") {
-                    selectedTab = .cloud
+                    openTab(.cloud)
+                }
+                heroActionButton(title: "Account", icon: "person.crop.circle.fill") {
+                    selectedTab = .account
                 }
             }
 
@@ -133,18 +142,22 @@ struct ContentView: View {
                 DrawingTab(
                     musicPlayer: musicPlayer,
                     onSave: { saveSession(kind: .drawing, strokeCount: $0) },
-                    onOpenLibrary: { selectedTab = .library },
+                    onOpenLibrary: { openTab(.library) },
                     onOpenPlaylist: { showPlaylist = true },
-                    onOpenCloud: { selectedTab = .cloud }
+                    onOpenCloud: { openTab(.cloud) }
                 )
             case .paint:
-                PaintingTab(
-                    musicPlayer: musicPlayer,
-                    onSave: { saveSession(kind: .painting, strokeCount: $0) },
-                    onOpenLibrary: { selectedTab = .library },
-                    onOpenPlaylist: { showPlaylist = true },
-                    onOpenCloud: { selectedTab = .cloud }
-                )
+                if accessManager.canAccess(.paint, sessionCount: sessions.count) {
+                    PaintingTab(
+                        musicPlayer: musicPlayer,
+                        onSave: { saveSession(kind: .painting, strokeCount: $0) },
+                        onOpenLibrary: { openTab(.library) },
+                        onOpenPlaylist: { showPlaylist = true },
+                        onOpenCloud: { openTab(.cloud) }
+                    )
+                } else {
+                    premiumLockedPanel(feature: .paint)
+                }
             case .library:
                 SessionLibraryView(
                     sessions: sessions,
@@ -152,15 +165,21 @@ struct ContentView: View {
                     onSelectTab: { selectedTab = $0 }
                 )
             case .cloud:
-                CloudBackupView(
-                    settings: currentSettings,
-                    snapshots: backupSnapshots,
-                    sessionCount: sessions.count,
-                    favoriteCount: favoriteTracks.count,
-                    onCloudKitToggle: { updateBackups(cloudKitEnabled: $0, iCloudEnabled: nil) },
-                    onICloudToggle: { updateBackups(cloudKitEnabled: nil, iCloudEnabled: $0) },
-                    onBackup: recordBackup
-                )
+                if accessManager.canAccess(.cloudBackup, sessionCount: sessions.count) {
+                    CloudBackupView(
+                        settings: currentSettings,
+                        snapshots: backupSnapshots,
+                        sessionCount: sessions.count,
+                        favoriteCount: favoriteTracks.count,
+                        onCloudKitToggle: { updateBackups(cloudKitEnabled: $0, iCloudEnabled: nil) },
+                        onICloudToggle: { updateBackups(cloudKitEnabled: nil, iCloudEnabled: $0) },
+                        onBackup: recordBackup
+                    )
+                } else {
+                    premiumLockedPanel(feature: .cloudBackup)
+                }
+            case .account:
+                AccountAccessView(access: accessManager, payments: paymentManager)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -261,6 +280,57 @@ struct ContentView: View {
         .goldPanel()
     }
 
+    private func premiumLockedPanel(feature: StudioFeature) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 40))
+                .foregroundStyle(GoldStudioTheme.sparkle)
+            Text("\(feature.title) requires Studio Pro")
+                .font(.headline)
+                .foregroundStyle(.white)
+            Button("View plans") {
+                accessManager.paywallFeature = feature
+                accessManager.showPaywall = true
+            }
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.black)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Capsule().fill(GoldStudioTheme.sparkle))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func openTab(_ tab: StudioTab) {
+        accessManager.requestAccess(
+            to: tab == .paint ? .paint : (tab == .cloud ? .cloudBackup : .librarySave),
+            sessionCount: sessions.count
+        ) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                selectedTab = tab
+            }
+        }
+    }
+
+    private func gateTabSelection(_ tab: StudioTab) {
+        switch tab {
+        case .paint:
+            if !accessManager.canAccess(.paint, sessionCount: sessions.count) {
+                selectedTab = .draw
+                accessManager.paywallFeature = .paint
+                accessManager.showPaywall = true
+            }
+        case .cloud:
+            if !accessManager.canAccess(.cloudBackup, sessionCount: sessions.count) {
+                selectedTab = .draw
+                accessManager.paywallFeature = .cloudBackup
+                accessManager.showPaywall = true
+            }
+        default:
+            break
+        }
+    }
+
     private func tabButton(tab: StudioTab) -> some View {
         Button {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
@@ -303,9 +373,12 @@ struct ContentView: View {
         .buttonStyle(.plain)
     }
 
-    private func prepareSettings() async {
+    private func prepareStudio() async {
         do {
             _ = try StudioStore.ensureSettings(in: modelContext)
+            try accessManager.bootstrap(in: modelContext)
+            await paymentManager.loadProducts()
+            try? await accessManager.syncSubscription(paymentManager: paymentManager, in: modelContext)
         } catch {
             present(error)
         }
@@ -314,6 +387,13 @@ struct ContentView: View {
     private func saveSession(kind: StudioSaveKind, strokeCount: Int) {
         guard strokeCount > 0 else {
             statusMessage = "Add a few strokes before saving a session."
+            return
+        }
+
+        guard accessManager.canAccess(.librarySave, sessionCount: sessions.count) else {
+            accessManager.paywallFeature = .librarySave
+            accessManager.showPaywall = true
+            statusMessage = "Free tier allows \(3) saved sessions. Upgrade for unlimited saves."
             return
         }
 

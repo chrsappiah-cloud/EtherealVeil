@@ -15,6 +15,7 @@ except ImportError as exc:  # pragma: no cover
 ROOT = Path(__file__).resolve().parents[1]
 ICON_DIR = ROOT / "EtherealVeil/Assets.xcassets/AppIcon.appiconset"
 SHOT_DIR = ROOT / "distribution/app-store/screenshots/en-US"
+PROMO_DIR = ROOT / "Promotional"
 
 GOLD = (0.88, 0.69, 0.29)
 GOLD_DK = (0.67, 0.49, 0.17)
@@ -120,7 +121,7 @@ def render_screenshot(width: int, height: int, headline: str, subtitle: str) -> 
         outline=tuple(int(255 * c) for c in GOLD),
         width=2,
     )
-    tabs = ["Draw", "Paint", "Library", "Cloud"]
+    tabs = ["Draw", "Paint", "Library", "Cloud", "Account"]
     slot = (width - 2 * pad - 40) // len(tabs)
     for i, label in enumerate(tabs):
         cx = pad + 20 + slot * i + slot // 2
@@ -151,14 +152,28 @@ def main() -> None:
         ("iphone_67_02_paint.png", 1290, 2796, "Paint with artist brushes", "Round, flat, fan, palette knife, watercolor, and oil."),
         ("iphone_67_03_music.png", 1290, 2796, "Classical music while you create", "CC0 Chopin playlist with favorites and playlist sheet."),
         ("iphone_67_04_cloud.png", 1290, 2796, "CloudKit library and backups", "Saved sessions, favorites, and backup checkpoints."),
+        ("iphone_67_05_account.png", 1290, 2796, "Account, payments & admin", "StoreKit Pro, admin grants, audit trail."),
     ]
     for filename, w, h, headline, subtitle in frames:
         path = SHOT_DIR / filename
         render_screenshot(w, h, headline, subtitle).save(path, format="PNG")
         print(f"Wrote {path}")
 
+    PROMO_DIR.mkdir(parents=True, exist_ok=True)
+    promo_specs = [
+        ("AppStore_iPhone_6.7.png", 1290, 2796, "Ethereal Veil Studio", "Draw · Paint · Music · Cloud · Pro"),
+        ("AppStore_iPhone_5.5.png", 1242, 2208, "Gold creative studio", "Subscriptions & admin access"),
+        ("AppStore_iPad_12.9.png", 2048, 2732, "Ethereal Veil for iPad", "Full studio on the large canvas"),
+        ("Feature_Banner_1920x1080.png", 1920, 1080, "Ethereal Veil — Investor Ready", "CI/CD · TestFlight · App Store"),
+        ("Social_Banner_1024x500.png", 1024, 500, "World Class Scholars presents Ethereal Veil", "Studio Pro from $4.99/mo"),
+    ]
+    for name, w, h, headline, subtitle in promo_specs:
+        path = PROMO_DIR / name
+        render_screenshot(w, h, headline, subtitle).save(path, format="PNG")
+        print(f"Wrote {path}")
+
     manifest = {
-        "version": "1.0.1",
+        "version": "1.1.0",
         "icons": ["AppIcon.png", "AppIcon-Dark.png", "AppIcon-Tinted.png"],
         "screenshots": [f[0] for f in frames],
     }
