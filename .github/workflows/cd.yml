@@ -154,20 +154,17 @@ jobs:
           ./scripts/install_provisioning_profile.sh "$PP_PATH"
           echo "Using provisioning profile UUID: $PROFILE_UUID"
 
-      - name: Prepare manual export options
+      - name: Configure keychain for xcodebuild
         run: |
           set -euo pipefail
-          cp "$EXPORT_PLIST" "$RUNNER_TEMP/ExportOptions.plist"
-          /usr/libexec/PlistBuddy -c "Set :signingStyle manual" "$RUNNER_TEMP/ExportOptions.plist"
-          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles dict" "$RUNNER_TEMP/ExportOptions.plist" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:com.worldclassscholars.etherealveil string ${{ steps.profile.outputs.uuid }}" "$RUNNER_TEMP/ExportOptions.plist" 2>/dev/null || \
-          /usr/libexec/PlistBuddy -c "Set :provisioningProfiles:com.worldclassscholars.etherealveil ${{ steps.profile.outputs.uuid }}" "$RUNNER_TEMP/ExportOptions.plist"
-          plutil -lint "$RUNNER_TEMP/ExportOptions.plist"
+          echo "KEYCHAIN_PATH=${KEYCHAIN_PATH:-}"
+          if [[ -n "${KEYCHAIN_PATH:-}" ]]; then
+            security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/^[[:space:]]*"\(.*\)".*/\1/')
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          fi
 
       - name: Archive (Release)
-        env:
-          PROFILE_UUID: ${{ steps.profile.outputs.uuid }}
-          KEYCHAIN_PATH: ${{ steps.codesign.outputs.keychain-path }}
         run: |
           set -euo pipefail
           xcodebuild archive \
@@ -176,19 +173,19 @@ jobs:
             -configuration "$CONFIGURATION" \
             -destination "generic/platform=iOS" \
             -archivePath "$RUNNER_TEMP/$SCHEME.xcarchive" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE="$PROFILE_UUID" \
+            -allowProvisioningUpdates \
             DEVELOPMENT_TEAM="$TEAM_ID" \
-            OTHER_CODE_SIGN_FLAGS="--keychain ${KEYCHAIN_PATH}"
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            OTHER_CODE_SIGN_FLAGS="${KEYCHAIN_PATH:+--keychain $KEYCHAIN_PATH}"
 
       - name: Export IPA
         run: |
           set -euo pipefail
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/$SCHEME.xcarchive" \
-            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
-            -exportPath "$RUNNER_TEMP/export"
+            -exportOptionsPlist "$EXPORT_PLIST" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates
           ls -lh "$RUNNER_TEMP/export"
 
       - name: Prepare App Store Connect API key file
