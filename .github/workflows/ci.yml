@@ -75,6 +75,9 @@ jobs:
           brew install xcodegen
           xcodegen generate
 
+      - name: Download iOS platform (asset catalog thinning on CI)
+        run: xcodebuild -downloadPlatform iOS
+
       - name: Build iOS app (Release, no signing)
         run: |
           xcodebuild build \
@@ -82,7 +85,8 @@ jobs:
             -scheme EtherealVeil \
             -configuration Release \
             -sdk iphoneos \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES
 
   distribution-assets:
     name: Promotional & Investor Assets
