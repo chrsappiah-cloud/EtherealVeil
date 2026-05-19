@@ -1,0 +1,7 @@
+# Fastlane Deliver configuration — en-AU primary locale
+app_identifier("com.worldclassscholars.etherealveil")
+metadata_path("./deliver/metadata")
+screenshots_path("./deliver/screenshots")
+platform(:ios)
+primary_category("GRAPHICS_AND_DESIGN")
+secondary_category("MUSIC")
