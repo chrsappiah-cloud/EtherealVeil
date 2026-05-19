@@ -6,7 +6,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 FTCD="$HOME/.appstoreconnect/private_keys/AuthKey_FTCDLIFPW2IU.p8"
-if [[ ! -f "$FTCD ]]; then FTCD="$HOME/Downloads/AuthKey_FTCDLIFPW2IU.p8"; fi
+if [[ ! -f "$FTCD" ]]; then
+  FTCD="$HOME/Downloads/AuthKey_FTCDLIFPW2IU.p8"
+fi
 
 "$ROOT/scripts/copy_submission_to_desktop.sh"
 
