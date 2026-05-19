@@ -57,6 +57,36 @@ platform :ios do
     )
   end
 
+  desc "Upload metadata and screenshots only (no submit)"
+  lane :deliver_upload do
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_PATH"],
+      is_key_content_base64: false
+    )
+    deliver(
+      api_key: api_key,
+      app_identifier: "com.worldclassscholars.etherealveil",
+      app_version: ENV.fetch("APP_VERSION", "1.1.0"),
+      primary_category: "GRAPHICS_AND_DESIGN",
+      secondary_category: "MUSIC",
+      skip_binary_upload: true,
+      skip_metadata: false,
+      skip_screenshots: false,
+      submit_for_review: false,
+      force: true,
+      precheck_include_in_app_purchases: false,
+      metadata_path: File.expand_path("deliver/metadata", __dir__),
+      screenshots_path: File.expand_path("deliver/screenshots", __dir__),
+      overwrite_screenshots: true,
+      ignore_language_directory_validation: true,
+      submission_information: {
+        content_rights_contains_third_party_content: false
+      }
+    )
+  end
+
   desc "Upload metadata, screenshots, and submit for App Store review"
   lane :deliver_submit do
     api_key = app_store_connect_api_key(
@@ -78,10 +108,14 @@ platform :ios do
       automatic_release: false,
       force: true,
       precheck_include_in_app_purchases: false,
-      metadata_path: "./deliver/metadata",
-      screenshots_path: "./deliver/screenshots",
+      metadata_path: File.expand_path("deliver/metadata", __dir__),
+      screenshots_path: File.expand_path("deliver/screenshots", __dir__),
+      ignore_language_directory_validation: true,
       overwrite_screenshots: true,
-      run_precheck_before_submit: false
+      run_precheck_before_submit: false,
+      submission_information: {
+        content_rights_contains_third_party_content: false
+      }
     )
   end
 

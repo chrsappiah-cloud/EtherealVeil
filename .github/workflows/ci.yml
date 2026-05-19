@@ -112,6 +112,16 @@ jobs:
           test -f distribution/EtherealVeil_Investor_Brochure.pdf
           test -f distribution/investor-brochure/pages/EtherealVeil_Brochure_Page_01.png
           test -f distribution/investor-brochure/pages/EtherealVeil_Brochure_Page_10.png
+          test -f distribution/app-store/screenshots/en-AU/iphone_67_01_draw.png
+          test -f distribution/app-store/screenshots/en-AU/iphone_65_01_draw.png
+          test -f distribution/app-store/screenshots/en-AU/ipad_pro129_01_studio.png
+
+      - name: Verify fastlane deliver screenshot layout
+        run: |
+          bash scripts/prepare_deliver_metadata.sh
+          test -f fastlane/deliver/screenshots/en-AU/iphone67_01.png
+          test -f fastlane/deliver/screenshots/en-AU/iphone65_01.png
+          test -f fastlane/deliver/screenshots/en-AU/ipadPro129_01.png
 
       - name: Upload investor bundle artifact
         uses: actions/upload-artifact@v4

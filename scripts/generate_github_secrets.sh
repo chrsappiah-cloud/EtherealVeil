@@ -10,9 +10,12 @@ ASC_ISSUER_ID="${ASC_ISSUER_ID:-70c46c69-5d6d-438d-b300-31df2b93163a}"
 # App Store Connect API key (.p8)
 if [[ -z "${P8_PATH:-}" ]]; then
   for candidate in \
+    "$HOME/Downloads/AuthKey_TN35FDL978.p8" \
+    "$HOME/.appstoreconnect/private_keys/AuthKey_TN35FDL978.p8" \
     "$HOME/Downloads/AuthKey_FTCDLIFPW2IU.p8" \
     "$HOME/.appstoreconnect/private_keys/AuthKey_FTCDLIFPW2IU.p8" \
     "$HOME/.wcs_release_secrets/AuthKey_FTCDLIFPW2IU.p8" \
+    "$HOME/Downloads/AuthKey_${ASC_KEY_ID:-TN35FDL978}.p8" \
     "$HOME/.appstoreconnect/private_keys/AuthKey_KLH62AX56M.p8" \
     "$HOME/Downloads/AuthKey_KLH62AX56M.p8"; do
     if [[ -f "$candidate" ]]; then
@@ -24,8 +27,10 @@ if [[ -z "${P8_PATH:-}" ]]; then
 fi
 : "${P8_PATH:?No AuthKey_*.p8 found. Set P8_PATH.}"
 ASC_KEY_ID="${ASC_KEY_ID:-$(basename "$P8_PATH" .p8 | sed 's/AuthKey_//')}"
-if [[ "$ASC_KEY_ID" != "FTCDLIFPW2IU" ]]; then
-  echo "WARNING: Using $ASC_KEY_ID — App Store metadata/submit needs App Manager key FTCDLIFPW2IU." >&2
+if [[ "$ASC_KEY_ID" == "TN35FDL978" ]] || [[ "$ASC_KEY_ID" == "FTCDLIFPW2IU" ]]; then
+  echo "Using App Manager key $ASC_KEY_ID (metadata + submit enabled)." >&2
+elif [[ "$ASC_KEY_ID" == "KLH62AX56M" ]]; then
+  echo "Note: KLH62AX56M = builds/TestFlight only. Add AuthKey_TN35FDL978.p8 for metadata/submit." >&2
 fi
 
 # App Store provisioning profile (etherealveil bundle)

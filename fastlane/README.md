@@ -39,6 +39,14 @@ Upload IPA to TestFlight
 
 Upload metadata and screenshots (no binary)
 
+### ios deliver_upload
+
+```sh
+[bundle exec] fastlane ios deliver_upload
+```
+
+Upload metadata and screenshots only (no submit)
+
 ### ios deliver_submit
 
 ```sh

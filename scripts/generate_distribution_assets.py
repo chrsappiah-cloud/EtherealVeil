@@ -157,8 +157,16 @@ def main() -> None:
         ("iphone_67_04_cloud.png", 1290, 2796, "CloudKit library and backups", "Saved sessions, favorites, and backup checkpoints."),
         ("iphone_67_05_account.png", 1290, 2796, "Account, payments & admin", "StoreKit Pro, admin grants, audit trail."),
     ]
+    # Required for universal iOS apps (6.5" and iPad Pro 12.9" 3rd gen slots).
+    extra_frames = [
+        ("iphone_65_01_draw.png", 1242, 2688, "Draw with gold studio controls", "Pencil, brush, marker, eraser, undo, and cloud save."),
+        ("iphone_65_02_paint.png", 1242, 2688, "Paint with artist brushes", "Round, flat, fan, palette knife, watercolor, and oil."),
+        ("ipad_pro129_01_studio.png", 2048, 2732, "Ethereal Veil for iPad", "Draw, paint, and listen on the big canvas."),
+        ("ipad_pro129_02_cloud.png", 2048, 2732, "CloudKit library on iPad", "Saved sessions, favorites, and backup checkpoints."),
+    ]
+    all_frames = frames + extra_frames
     for shot_dir in (SHOT_DIR_EN_US, SHOT_DIR_EN_AU):
-        for filename, w, h, headline, subtitle in frames:
+        for filename, w, h, headline, subtitle in all_frames:
             path = shot_dir / filename
             render_screenshot(w, h, headline, subtitle).save(path, format="PNG")
             print(f"Wrote {path}")
@@ -166,7 +174,7 @@ def main() -> None:
     PROMO_DIR.mkdir(parents=True, exist_ok=True)
     promo_specs = [
         ("Promo_01_Hero.png", 1290, 2796, "Ethereal Veil Studio", "Draw · Paint · Music · Cloud · Pro"),
-        ("Promo_02_Draw_Paint.png", 1242, 2208, "Draw & Paint", "Gold brushes · SwiftData library"),
+        ("Promo_02_Draw_Paint.png", 1242, 2688, "Draw & Paint", "Gold brushes · SwiftData library"),
         ("Promo_03_Music_Cloud.png", 2048, 2732, "Music & Cloud", "Classical playlist · CloudKit backup"),
         ("Promo_04_Subscriptions.png", 1920, 1080, "Studio Pro", "$4.99/mo · $39.99/yr · Admin access"),
         ("Promo_05_Investor_CI.png", 1024, 500, "Investor Ready", "CI/CD · TestFlight · App Store"),
@@ -192,7 +200,7 @@ def main() -> None:
     manifest = {
         "version": "1.1.0",
         "icons": ["AppIcon.png", "AppIcon-Dark.png", "AppIcon-Tinted.png"],
-        "screenshots": [f[0] for f in frames],
+        "screenshots": [f[0] for f in all_frames],
         "promotional": [p[0] for p in promo_specs],
     }
     manifest_path = ROOT / "distribution/app-store/asset_manifest.json"

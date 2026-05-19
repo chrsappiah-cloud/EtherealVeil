@@ -34,6 +34,8 @@ def resolve_key(connect: dict) -> tuple[str, Path]:
         candidates.append((preferred, Path.home() / "private_keys" / f"AuthKey_{preferred}.p8"))
     appstore_keys = Path.home() / ".appstoreconnect" / "private_keys"
     for kid, path in [
+        ("TN35FDL978", appstore_keys / "AuthKey_TN35FDL978.p8"),
+        ("TN35FDL978", Path.home() / "Downloads" / "AuthKey_TN35FDL978.p8"),
         ("KLH62AX56M", appstore_keys / "AuthKey_KLH62AX56M.p8"),
         ("KLH62AX56M", Path.home() / "Downloads" / "AuthKey_KLH62AX56M.p8"),
         ("5NNSQ6MBCX", appstore_keys / "AuthKey_5NNSQ6MBCX.p8"),
@@ -123,8 +125,110 @@ def review_notes() -> str:
     )
 
 
+def set_content_rights(session: requests.Session, app_id: str) -> None:
+    r = patch(
+        session,
+        f"{API}/apps/{app_id}",
+        {
+            "data": {
+                "type": "apps",
+                "id": app_id,
+                "attributes": {"contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT"},
+            }
+        },
+    )
+    print("Content rights:", r.status_code)
+    if r.status_code >= 400:
+        print(r.text[:400])
+
+
+def set_free_pricing(session: requests.Session, app_id: str, territory: str = "AUS") -> None:
+    r = session.get(
+        f"{API}/apps/{app_id}/appPricePoints",
+        params={"filter[territory]": territory, "limit": 1},
+    )
+    if r.status_code != 200 or not r.json().get("data"):
+        print("Price points:", r.status_code, r.text[:300])
+        return
+    price_point_id = r.json()["data"][0]["id"]
+    body = {
+        "data": {
+            "type": "appPriceSchedules",
+            "relationships": {
+                "app": {"data": {"type": "apps", "id": app_id}},
+                "baseTerritory": {"data": {"type": "territories", "id": territory}},
+                "manualPrices": {"data": [{"type": "appPrices", "id": "${price1}"}]},
+            },
+        },
+        "included": [
+            {
+                "type": "appPrices",
+                "id": "${price1}",
+                "attributes": {"startDate": None},
+                "relationships": {
+                    "appPricePoint": {
+                        "data": {"type": "appPricePoints", "id": price_point_id}
+                    }
+                },
+            }
+        ],
+    }
+    r2 = post(session, f"{API}/appPriceSchedules", body)
+    print(f"Free pricing ({territory}):", r2.status_code)
+    if r2.status_code >= 400:
+        print(r2.text[:400])
+
+
+def publish_privacy_not_collected(session: requests.Session, app_id: str) -> None:
+    existing = session.get(f"{API}/apps/{app_id}/dataUsages")
+    if existing.status_code == 200:
+        for item in existing.json().get("data", []):
+            session.delete(f"{API}/appDataUsages/{item['id']}")
+    r = post(
+        session,
+        f"{API}/appDataUsages",
+        {
+            "data": {
+                "type": "appDataUsages",
+                "relationships": {
+                    "app": {"data": {"type": "apps", "id": app_id}},
+                    "dataProtection": {
+                        "data": {
+                            "type": "appDataUsageDataProtections",
+                            "id": "DATA_NOT_COLLECTED",
+                        }
+                    },
+                },
+            }
+        },
+    )
+    print("Privacy data usage:", r.status_code)
+    if r.status_code >= 400:
+        print(r.text[:400])
+        return
+    pub = session.get(f"{API}/apps/{app_id}/appDataUsagesPublishState")
+    if pub.status_code != 200:
+        print("Privacy publish state:", pub.status_code, pub.text[:300])
+        return
+    pid = pub.json()["data"]["id"]
+    r2 = patch(
+        session,
+        f"{API}/appDataUsagesPublishState/{pid}",
+        {
+            "data": {
+                "type": "appDataUsagesPublishState",
+                "id": pid,
+                "attributes": {"published": True},
+            }
+        },
+    )
+    print("Privacy published:", r2.status_code)
+    if r2.status_code >= 400:
+        print(r2.text[:400])
+
+
 def attach_latest_build(session: requests.Session, app_id: str, version_id: str) -> bool:
-    r = session.get(f"{API}/apps/{app_id}/builds", params={"limit": 5, "sort": "-uploadedDate"})
+    r = session.get(f"{API}/apps/{app_id}/builds", params={"limit": 10})
     r.raise_for_status()
     builds = r.json().get("data", [])
     if not builds:
@@ -161,11 +265,20 @@ def main() -> None:
     parser.add_argument("--review", action="store_true", help="Create/update review contact + notes")
     parser.add_argument("--version", default="1.1.0", help="Marketing version string in ASC")
     parser.add_argument("--attach-build", action="store_true", help="Attach newest VALID build")
+    parser.add_argument("--content-rights", action="store_true", help="Set content rights declaration on app")
+    parser.add_argument("--pricing", action="store_true", help="Set free pricing (AUS base territory)")
+    parser.add_argument("--privacy", action="store_true", help="Publish App Privacy (data not collected)")
     parser.add_argument("--submit", action="store_true", help="Submit version for App Review")
-    parser.add_argument("--all", action="store_true", help="metadata + age-rating + review + attach + submit")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="metadata + age-rating + review + content-rights + pricing + privacy + attach + submit",
+    )
     args = parser.parse_args()
     if args.all:
-        args.metadata = args.age_rating = args.review = args.attach_build = args.submit = True
+        args.metadata = args.age_rating = args.review = True
+        args.content_rights = args.pricing = args.privacy = True
+        args.attach_build = args.submit = True
 
     connect = load_connect()
     kid, key_path = resolve_key(connect)
@@ -235,6 +348,8 @@ def main() -> None:
                     "contactFirstName": "Christopher",
                     "contactLastName": "Appiah-Thompson",
                     "contactEmail": "chrsappiah@gmail.com",
+                    "contactPhone": "+61400000000",
+                    "demoAccountRequired": False,
                     "notes": notes[:4000],
                 },
                 "relationships": {
@@ -246,12 +361,22 @@ def main() -> None:
         if existing.json().get("data"):
             detail_id = existing.json()["data"]["id"]
             body["data"]["id"] = detail_id
+            body["data"].pop("relationships", None)
             r = patch(session, f"{API}/appStoreReviewDetails/{detail_id}", body)
         else:
             r = post(session, f"{API}/appStoreReviewDetails", body)
         print("Review detail:", r.status_code)
         if r.status_code >= 400:
             print(r.text[:600])
+
+    if args.content_rights:
+        set_content_rights(session, app_id)
+
+    if args.pricing:
+        set_free_pricing(session, app_id)
+
+    if args.privacy:
+        publish_privacy_not_collected(session, app_id)
 
     if args.attach_build:
         attach_latest_build(session, app_id, version_id)
@@ -277,7 +402,19 @@ def main() -> None:
         else:
             print("Submitted successfully.")
 
-    if not any([args.metadata, args.age_rating, args.review, args.attach_build, args.submit, args.all]):
+    if not any(
+        [
+            args.metadata,
+            args.age_rating,
+            args.review,
+            args.content_rights,
+            args.pricing,
+            args.privacy,
+            args.attach_build,
+            args.submit,
+            args.all,
+        ]
+    ):
         parser.print_help()
 
 

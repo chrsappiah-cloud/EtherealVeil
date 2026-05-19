@@ -2,6 +2,6 @@
 app_identifier("com.worldclassscholars.etherealveil")
 metadata_path("./deliver/metadata")
 screenshots_path("./deliver/screenshots")
-platform(:ios)
+# platform set in Fastfile deliver() call
 primary_category("GRAPHICS_AND_DESIGN")
 secondary_category("MUSIC")

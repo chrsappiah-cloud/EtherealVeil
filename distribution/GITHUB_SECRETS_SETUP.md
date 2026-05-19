@@ -41,11 +41,33 @@ gh workflow run "CD — TestFlight (Production)" -f marketing_version=1.1.0
 | `P12_PASSWORD` | Certificate export password |
 | `BUILD_PROVISION_PROFILE_BASE64` | App Store `.mobileprovision` (base64) |
 | `KEYCHAIN_PASSWORD` | Ephemeral CI keychain password (any strong random string) |
-| `ASC_KEY_ID` | App Store Connect API Key ID |
+| `ASC_KEY_ID` | App Store Connect API Key ID (`TN35FDL978` App Manager for deliver/submit; `KLH62AX56M` optional for binary-only uploads) |
 | `ASC_ISSUER_ID` | App Store Connect Issuer ID |
 | `ASC_PRIVATE_KEY_BASE64` | API `.p8` key file (base64) |
 
 Attach all secrets to the **`production`** environment (Settings → Environments → production).
+
+## Enforce CI on GitHub (branch protection)
+
+In **Settings → Branches → Branch protection rules** for `master` / `main` (and optionally `feature/*` via ruleset):
+
+1. **Require a pull request before merging**
+2. **Require status checks to pass** — enable:
+   - `Lint & Validate`
+   - `SPM Build & Test`
+   - `Xcode Release Build`
+   - `Promotional & Investor Assets`
+3. **Require branches to be up to date before merging**
+4. **Do not allow bypassing the above settings**
+
+CI runs on every push to `master`, `main`, `feature/**`, and `fix/**` (see `.github/workflows/ci.yml`). CD TestFlight runs on tags `v*.*.*` after the quality gate passes.
+
+```bash
+# After secrets are set, refresh production ASC key (App Manager):
+P8_PATH=~/.appstoreconnect/private_keys/AuthKey_TN35FDL978.p8 \
+ASC_KEY_ID=TN35FDL978 ASC_ISSUER_ID=70c46c69-5d6d-438d-b300-31df2b93163a \
+./scripts/push_github_secrets.sh
+```
 
 ## Automated workflows
 

@@ -17,19 +17,22 @@ cp "$ROOT/distribution/app-store/INFLIGHT_CHECKLIST.md" "$DEST/README_SUBMIT.md"
 cp -R "$ROOT/Promotional/Promo_"*.png "$DEST/promotional/" 2>/dev/null || mkdir -p "$DEST/promotional" && cp "$ROOT/Promotional/Promo_"*.png "$DEST/promotional/"
 
 cat > "$DEST/SUBMIT_STEPS.txt" <<'EOF'
-Ethereal Veil — App Store submission (build 110 ready)
+Ethereal Veil — App Store 1.1.0 (build 110)
 
-1. Open: https://appstoreconnect.apple.com/apps/6763116253/distribution/ios/version/inflight
-2. Set Version to 1.1.0 (build 110 is marketing version 1.1.0)
-3. Build → select build 110
-4. App Information: paste metadata/*.txt fields (en-AU)
-5. Screenshots: upload all files in screenshots/ (iPhone 6.7)
-6. App Review: paste review/review_information.md notes
-7. Age Rating, App Privacy, Export compliance (see submission_responses.md)
-8. Add for Review → Submit
+STATUS: Submitted for review (WAITING_FOR_REVIEW)
 
-Automate later: place AuthKey_FTCDLIFPW2IU.p8 (App Manager) and run:
-  ./scripts/generate_github_secrets.sh && ./scripts/app_store_submit.sh
+Track review:
+  https://appstoreconnect.apple.com/apps/6763116253/distribution/appstore/reviewsubmissions
+
+After approval (manual release):
+  1. Open version inflight URL
+  2. Click "Release this version"
+
+Resubmit after rejection:
+  export ASC_ISSUER_ID=70c46c69-5d6d-438d-b300-31df2b93163a
+  export ASC_KEY_ID=TN35FDL978
+  export ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_TN35FDL978.p8
+  ./scripts/finish_app_store_submission.sh
 EOF
 
 echo "Copied submission package to: $DEST"
