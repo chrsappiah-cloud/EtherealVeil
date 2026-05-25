@@ -10,7 +10,7 @@ final class AccessControlManager {
     var currentUser: StudioUser?
     var showPaywall = false
     var paywallFeature: StudioFeature = .paint
-    var statusMessage = "Sign in to manage your studio access."
+    var statusMessage = "Create a local account or enable Full Feature Demo to unlock the complete studio."
 
     private let freeSessionSaveLimit = 3
 
@@ -35,6 +35,11 @@ final class AccessControlManager {
         statusMessage = "Signed out."
     }
 
+    func activateReviewMode(in context: ModelContext) throws {
+        currentUser = try AccessStore.activateReviewMode(in: context)
+        refreshStatusMessage()
+    }
+
     func syncSubscription(
         paymentManager: PaymentManager,
         in context: ModelContext
@@ -45,10 +50,12 @@ final class AccessControlManager {
         if entitled {
             try AccessStore.applySubscription(
                 user: user,
-                tier: .pro,
-                status: .active,
-                expiresAt: Calendar.current.date(byAdding: .year, value: 1, to: .now),
-                note: "App Store subscription",
+                update: .init(
+                    tier: .pro,
+                    status: .active,
+                    expiresAt: Calendar.current.date(byAdding: .year, value: 1, to: .now),
+                    note: "App Store subscription"
+                ),
                 in: context
             )
         }
@@ -99,13 +106,18 @@ final class AccessControlManager {
     var accessBadge: String {
         guard let user = currentUser else { return "Guest" }
         if isAdmin { return "Admin" }
+        if user.email == AccessStore.reviewDemoEmail { return "Review Demo" }
         let tier = StudioAccessTier(rawValue: user.accessTier) ?? .free
         return tier.label
     }
 
     private func refreshStatusMessage() {
         guard let user = currentUser else {
-            statusMessage = "Create an account to save sessions and subscribe."
+            statusMessage = "Create an account or enable Full Feature Demo to unlock the complete studio."
+            return
+        }
+        if user.email == AccessStore.reviewDemoEmail {
+            statusMessage = "App Review Demo enabled · Full feature access."
             return
         }
         let tier = StudioAccessTier(rawValue: user.accessTier) ?? .free

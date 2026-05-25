@@ -83,6 +83,10 @@ struct ContentView: View {
         return "Preparing CloudKit and iCloud backup settings."
     }
 
+    private var hasLivePurchases: Bool {
+        paymentManager.hasAvailableProducts
+    }
+
     private var heroHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
@@ -285,12 +289,15 @@ struct ContentView: View {
             Image(systemName: "lock.fill")
                 .font(.system(size: 40))
                 .foregroundStyle(GoldStudioTheme.sparkle)
-            Text("\(feature.title) requires Studio Pro")
+            Text(
+                hasLivePurchases
+                    ? "\(feature.title) requires Studio Pro"
+                    : "Open Account to enable the full feature demo for \(feature.title.lowercased())"
+            )
                 .font(.headline)
                 .foregroundStyle(.white)
-            Button("View plans") {
-                accessManager.paywallFeature = feature
-                accessManager.showPaywall = true
+            Button(hasLivePurchases ? "View plans" : "Open Account") {
+                presentAccessOptions(for: feature)
             }
             .font(.caption.weight(.bold))
             .foregroundStyle(.black)
@@ -302,13 +309,13 @@ struct ContentView: View {
     }
 
     private func openTab(_ tab: StudioTab) {
-        accessManager.requestAccess(
-            to: tab == .paint ? .paint : (tab == .cloud ? .cloudBackup : .librarySave),
-            sessionCount: sessions.count
-        ) {
+        let feature = tab == .paint ? StudioFeature.paint : (tab == .cloud ? .cloudBackup : .librarySave)
+        if accessManager.canAccess(feature, sessionCount: sessions.count) {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                 selectedTab = tab
             }
+        } else {
+            presentAccessOptions(for: feature)
         }
     }
 
@@ -317,17 +324,28 @@ struct ContentView: View {
         case .paint:
             if !accessManager.canAccess(.paint, sessionCount: sessions.count) {
                 selectedTab = .draw
-                accessManager.paywallFeature = .paint
-                accessManager.showPaywall = true
+                presentAccessOptions(for: .paint)
             }
         case .cloud:
             if !accessManager.canAccess(.cloudBackup, sessionCount: sessions.count) {
                 selectedTab = .draw
-                accessManager.paywallFeature = .cloudBackup
-                accessManager.showPaywall = true
+                presentAccessOptions(for: .cloudBackup)
             }
         default:
             break
+        }
+    }
+
+    private func presentAccessOptions(for feature: StudioFeature) {
+        if hasLivePurchases {
+            accessManager.paywallFeature = feature
+            accessManager.showPaywall = true
+            return
+        }
+
+        statusMessage = "Open Account and tap Enable Full Feature Demo to access \(feature.title.lowercased())."
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            selectedTab = .account
         }
     }
 
@@ -391,9 +409,10 @@ struct ContentView: View {
         }
 
         guard accessManager.canAccess(.librarySave, sessionCount: sessions.count) else {
-            accessManager.paywallFeature = .librarySave
-            accessManager.showPaywall = true
-            statusMessage = "Free tier allows \(3) saved sessions. Upgrade for unlimited saves."
+            presentAccessOptions(for: .librarySave)
+            statusMessage = hasLivePurchases
+                ? "Free tier allows \(3) saved sessions. Upgrade for unlimited saves."
+                : "Free tier allows \(3) saved sessions. Open Account to enable the full feature demo."
             return
         }
 

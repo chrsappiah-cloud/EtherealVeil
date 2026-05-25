@@ -1,7 +1,8 @@
 # App Store version 1.1.0 — submitted for review
 
-**Status:** `WAITING_FOR_REVIEW` (submitted 2026-05-19)  
-**Build:** 1.1.0 (110) — VALID  
+**Status:** `WAITING_FOR_REVIEW` (resubmitted 2026-05-23)  
+**Build:** 1.1.0 (**112**) — VALID, attached  
+**Submission:** `821ef3ad-bd58-4dd3-9407-dc6a0275c494`  
 **Release:** Manual (you release after approval)
 
 | Link | URL |
@@ -40,8 +41,8 @@
 
 ```bash
 export ASC_ISSUER_ID=70c46c69-5d6d-438d-b300-31df2b93163a
-export ASC_KEY_ID=TN35FDL978
-export ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_TN35FDL978.p8
+export ASC_KEY_ID=A863K5FF84
+export ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_A863K5FF84.p8
 export APP_VERSION=1.1.0
 ./scripts/finish_app_store_submission.sh
 ```

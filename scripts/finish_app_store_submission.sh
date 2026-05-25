@@ -8,6 +8,8 @@ cd "$ROOT"
 ASC_KEY="${ASC_KEY_PATH:-}"
 if [[ -z "$ASC_KEY" || ! -f "$ASC_KEY" ]]; then
   for candidate in \
+    "$HOME/.appstoreconnect/private_keys/AuthKey_A863K5FF84.p8" \
+    "$HOME/Downloads/AuthKey_A863K5FF84.p8" \
     "$HOME/.appstoreconnect/private_keys/AuthKey_TN35FDL978.p8" \
     "$HOME/Downloads/AuthKey_TN35FDL978.p8"; do
     if [[ -f "$candidate" ]]; then
@@ -24,10 +26,10 @@ python3 "$ROOT/scripts/generate_distribution_assets.py"
 if [[ -f "$ASC_KEY" ]]; then
   echo "Running App Store Connect automation (TN35FDL978)..."
   export ASC_ISSUER_ID="${ASC_ISSUER_ID:-70c46c69-5d6d-438d-b300-31df2b93163a}"
-  export ASC_KEY_ID="${ASC_KEY_ID:-TN35FDL978}"
+  export ASC_KEY_ID="${ASC_KEY_ID:-A863K5FF84}"
   export ASC_KEY_PATH="$ASC_KEY"
   export APP_VERSION="${APP_VERSION:-1.1.0}"
-  python3 "$ROOT/scripts/app_store_connect_deploy.py" --content-rights --pricing --review --attach-build
+  python3 "$ROOT/scripts/app_store_connect_deploy.py" --content-rights --pricing --review --attach-build --submit
   cd "$ROOT/fastlane" && bundle exec fastlane deliver_submit || SUBMIT_EXIT=$?
   if [[ "${SUBMIT_EXIT:-0}" -ne 0 ]]; then
     echo ""

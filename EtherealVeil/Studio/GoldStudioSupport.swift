@@ -338,7 +338,11 @@ struct CloudBackupView: View {
                                             .foregroundStyle(Color.white.opacity(0.66))
                                     }
                                     Spacer()
-                                    Image(systemName: provider == .cloudKit ? "arrow.triangle.2.circlepath.icloud.fill" : "externaldrive.fill.badge.icloud")
+                                    Image(
+                                        systemName: provider == .cloudKit
+                                            ? "arrow.triangle.2.circlepath.icloud.fill"
+                                            : "externaldrive.fill.badge.icloud"
+                                    )
                                         .foregroundStyle(GoldStudioTheme.sparkle)
                                 }
                                 .padding(14)
@@ -384,7 +388,11 @@ struct CloudBackupView: View {
                     } else {
                         ForEach(snapshots.prefix(8)) { snapshot in
                             HStack(spacing: 12) {
-                                Image(systemName: snapshot.provider == BackupProvider.cloudKit.rawValue ? "icloud.fill" : "externaldrive.fill.badge.icloud")
+                                Image(
+                                    systemName: snapshot.provider == BackupProvider.cloudKit.rawValue
+                                        ? "icloud.fill"
+                                        : "externaldrive.fill.badge.icloud"
+                                )
                                     .foregroundStyle(GoldStudioTheme.sparkle)
                                     .frame(width: 24)
 

@@ -16,10 +16,11 @@ cp "$ROOT/distribution/PRIVACY.md" "$DEST/"
 cp "$ROOT/distribution/app-store/INFLIGHT_CHECKLIST.md" "$DEST/README_SUBMIT.md"
 cp -R "$ROOT/Promotional/Promo_"*.png "$DEST/promotional/" 2>/dev/null || mkdir -p "$DEST/promotional" && cp "$ROOT/Promotional/Promo_"*.png "$DEST/promotional/"
 
-cat > "$DEST/SUBMIT_STEPS.txt" <<'EOF'
-Ethereal Veil — App Store 1.1.0 (build 110)
+BUILD="$(/usr/libexec/PlistBuddy -c "Print :CURRENT_PROJECT_VERSION" "$ROOT/project.yml" 2>/dev/null | sed 's/"//g' || echo "111")"
+cat > "$DEST/SUBMIT_STEPS.txt" <<EOF
+Ethereal Veil — App Store 1.1.0 (build ${BUILD})
 
-STATUS: Submitted for review (WAITING_FOR_REVIEW)
+STATUS: Resubmit after review fixes (build ${BUILD})
 
 Track review:
   https://appstoreconnect.apple.com/apps/6763116253/distribution/appstore/reviewsubmissions

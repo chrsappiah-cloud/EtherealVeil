@@ -7,6 +7,22 @@ import SwiftData
 enum AccessStore {
     private static let currentUserKey = "studio_current_user_id"
     private static let defaultAdminEmail = "admin@worldclassscholars.com"
+    static let reviewDemoEmail = "review-demo@etherealveil.local"
+
+    struct SubscriptionUpdate {
+        let tier: StudioAccessTier
+        let status: StudioSubscriptionStatus
+        let expiresAt: Date?
+        let note: String
+    }
+
+    struct AdminAccessUpdate {
+        let tier: StudioAccessTier
+        let status: StudioSubscriptionStatus
+        let isActive: Bool
+        let expiresAt: Date?
+        let note: String
+    }
 
     static func ensureDefaultAdmin(in context: ModelContext) throws {
         let descriptor = FetchDescriptor<StudioUser>(
@@ -21,15 +37,8 @@ enum AccessStore {
                 subscriptionStatus: .adminGranted
             )
             admin.manualPaymentNote = "Bootstrap administrator"
-            admin.isCurrentSession = true
             context.insert(admin)
-            UserDefaults.standard.set(admin.id.uuidString, forKey: currentUserKey)
             try context.save()
-        } else if try currentUser(in: context) == nil {
-            let admins = try context.fetch(descriptor)
-            if let admin = admins.first {
-                try setCurrentUser(admin, in: context)
-            }
         }
     }
 
@@ -71,6 +80,9 @@ enum AccessStore {
         )
         let user: StudioUser
         if let existing = try context.fetch(descriptor).first {
+            if existing.role == StudioUserRole.admin.rawValue {
+                throw AccessStoreError.reservedAccount
+            }
             existing.displayName = displayName
             existing.updatedAt = .now
             user = existing
@@ -91,18 +103,47 @@ enum AccessStore {
         try context.save()
     }
 
+    static func activateReviewMode(in context: ModelContext) throws -> StudioUser {
+        let descriptor = FetchDescriptor<StudioUser>(
+            predicate: #Predicate { $0.email == reviewDemoEmail }
+        )
+        let user: StudioUser
+        if let existing = try context.fetch(descriptor).first {
+            existing.displayName = "App Review Demo"
+            existing.role = StudioUserRole.user.rawValue
+            existing.accessTier = StudioAccessTier.enterprise.rawValue
+            existing.subscriptionStatus = StudioSubscriptionStatus.trial.rawValue
+            existing.isActive = true
+            existing.subscriptionExpiresAt = Calendar.current.date(byAdding: .day, value: 30, to: .now)
+            existing.manualPaymentNote = "Full feature demo access"
+            existing.updatedAt = .now
+            user = existing
+        } else {
+            user = StudioUser(
+                email: reviewDemoEmail,
+                displayName: "App Review Demo",
+                accessTier: .enterprise,
+                subscriptionStatus: .trial
+            )
+            user.subscriptionExpiresAt = Calendar.current.date(byAdding: .day, value: 30, to: .now)
+            user.manualPaymentNote = "Full feature demo access"
+            context.insert(user)
+        }
+
+        try setCurrentUser(user, in: context)
+        try context.save()
+        return user
+    }
+
     static func applySubscription(
         user: StudioUser,
-        tier: StudioAccessTier,
-        status: StudioSubscriptionStatus,
-        expiresAt: Date?,
-        note: String,
+        update: SubscriptionUpdate,
         in context: ModelContext
     ) throws {
-        user.accessTier = tier.rawValue
-        user.subscriptionStatus = status.rawValue
-        user.subscriptionExpiresAt = expiresAt
-        user.manualPaymentNote = note
+        user.accessTier = update.tier.rawValue
+        user.subscriptionStatus = update.status.rawValue
+        user.subscriptionExpiresAt = update.expiresAt
+        user.manualPaymentNote = update.note
         user.updatedAt = .now
         try context.save()
     }
@@ -110,28 +151,24 @@ enum AccessStore {
     static func adminUpdateUser(
         actor: StudioUser,
         target: StudioUser,
-        tier: StudioAccessTier,
-        status: StudioSubscriptionStatus,
-        isActive: Bool,
-        expiresAt: Date?,
-        note: String,
+        update: AdminAccessUpdate,
         in context: ModelContext
     ) throws {
         guard actor.role == StudioUserRole.admin.rawValue else {
             throw AccessStoreError.notAuthorized
         }
-        target.accessTier = tier.rawValue
-        target.subscriptionStatus = status.rawValue
-        target.isActive = isActive
-        target.subscriptionExpiresAt = expiresAt
-        target.manualPaymentNote = note
+        target.accessTier = update.tier.rawValue
+        target.subscriptionStatus = update.status.rawValue
+        target.isActive = update.isActive
+        target.subscriptionExpiresAt = update.expiresAt
+        target.manualPaymentNote = update.note
         target.updatedAt = .now
 
         let log = AccessAuditLog(
             actorEmail: actor.email,
             targetEmail: target.email,
             action: "access_update",
-            detail: "Tier \(tier.rawValue), status \(status.rawValue), active \(isActive)"
+            detail: "Tier \(update.tier.rawValue), status \(update.status.rawValue), active \(update.isActive)"
         )
         context.insert(log)
         try context.save()
@@ -153,12 +190,14 @@ enum AccessStore {
     }
 }
 
-enum AccessStoreError: LocalizedError {
+enum AccessStoreError: LocalizedError, Equatable {
     case notAuthorized
+    case reservedAccount
 
     var errorDescription: String? {
         switch self {
         case .notAuthorized: "Admin privileges are required for this action."
+        case .reservedAccount: "This account is reserved. Use Full Feature Demo for full access in this build."
         }
     }
 }

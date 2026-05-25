@@ -1,22 +1,34 @@
 # App Store Connect — Distribution & Review Responses
 
 App: **Ethereal Veil** · Apple ID `6763116253` · Bundle `com.worldclassscholars.etherealveil`  
-Issuer ID: `70c46c69-5d6d-438d-b300-31df2b93163a` · API Key ID: `FTCDLIFPW2IU`
+API Key: `A863K5FF84` · Issuer: `70c46c69-5d6d-438d-b300-31df2b93163a`
+
+**Status (2026-05-26):** Version 1.1.0 · Build **113** · responding to information request  
+**Review submission:** `821ef3ad-bd58-4dd3-9407-dc6a0275c494`
 
 ---
 
-## Version metadata (en-AU primary)
+## Apple information request (2026-05-25)
 
-| Field | Response |
-|--------|----------|
-| **Name** | Ethereal Veil |
-| **Subtitle** | Gold creative studio |
-| **Description** | See `metadata/en-AU/description.txt` |
-| **Keywords** | See `metadata/en-AU/keywords.txt` |
-| **What's New** | See `metadata/en-AU/release_notes.txt` |
-| **Promotional text** | See `metadata/en-AU/promotional_text.txt` |
-| **Support URL** | https://github.com/chrsappiah-cloud/EtherealVeil |
-| **Privacy Policy URL** | https://github.com/chrsappiah-cloud/EtherealVeil/blob/master/distribution/PRIVACY.md |
+| Question | Answer |
+|----------|--------|
+| Username/password login? | **No** — local email + display name only; no password field |
+| Create account? | Account tab → email + display name → **Sign in or create account** |
+| IAP location after demo? | Account tab → **Studio Pro subscriptions (In-App Purchase)** (first section below header) |
+
+Resolution Center reply: `resolution_center_response.md`
+
+---
+
+## Rejection responses (May 2026 — build 112)
+
+| Guideline | Issue | Resolution |
+|-----------|--------|------------|
+| **2.1(a)** | Could not access all features | **Enable Full Feature Demo** on Account tab |
+| **2.1(b)** | IAPs not submitted | Studio Pro monthly + yearly submitted with version |
+| **2.5.4** | `UIBackgroundModes` audio | Removed; foreground music only |
+
+Build **113** additionally clarifies account model and always shows IAP section on Account tab.
 
 ---
 
@@ -24,93 +36,34 @@ Issuer ID: `70c46c69-5d6d-438d-b300-31df2b93163a` · API Key ID: `FTCDLIFPW2IU`
 
 | Field | Response |
 |--------|----------|
-| **First name** | Christopher |
-| **Last name** | Appiah-Thompson |
-| **Email** | chrsappiah@gmail.com |
-| **Phone** | (set in App Store Connect contact) |
-| **Sign-in required** | No — core studio works without login |
-| **Demo account** | Not required |
-
-### Notes for reviewer
-
-1. **Draw / Paint** — Open Draw or Paint, drag on the canvas. Toolbar: tools, colours, undo/redo, Save to Library.
-2. **Music** — Tap Play on the gold music strip or open **Playlist**. Streams royalty-free MP3 from archive.org (`NSAppTransportSecurity` exception in Info.plist).
-3. **Library** — Appears after Save in Draw or Paint.
-4. **Cloud** — Backup toggles and checkpoints; CloudKit on signed builds with the configured container.
-5. **Account / Studio Pro** — Optional StoreKit subscriptions (`studio.monthly` / `studio.yearly`). Sandbox purchases can be tested with a Sandbox Apple ID.
-6. **Encryption** — `ITSAppUsesNonExemptEncryption` = false (HTTPS only, no custom cryptography).
+| **Sign-in required** | No |
+| **Demo account** | Not required — use **Enable Full Feature Demo** |
+| **Notes** | See `review_information.md` |
 
 ---
 
-## Export compliance
+## In-App Purchases (Studio Pro)
 
-| Question | Answer |
-|----------|--------|
-| Uses encryption? | Yes — standard HTTPS/TLS only |
-| Exempt from export documentation? | **Yes** — qualifies for exemption (only Apple OS crypto + HTTPS) |
-| Info.plist | `ITSAppUsesNonExemptEncryption` = **false** |
+| Product ID | ASC subscription ID | State |
+|------------|---------------------|--------|
+| `com.worldclassscholars.etherealveil.studio.monthly` | `6772456273` | Ready with version |
+| `com.worldclassscholars.etherealveil.studio.yearly` | `6772456583` | Ready with version |
 
----
-
-## Age rating (questionnaire)
-
-| Topic | Answer |
-|--------|--------|
-| Cartoon/fantasy violence | None |
-| Realistic violence | None |
-| Sexual content | None |
-| Profanity | None |
-| Horror | None |
-| Mature themes | None |
-| Gambling | None |
-| Unrestricted web access | **No** — in-app browser not provided; music URLs are app-controlled |
-| User-generated content | **No** — art stays on device / user's iCloud |
-| Messaging/chat | None |
-| Advertising | **No** third-party ads |
-| Made for kids | **No** |
-| **Suggested rating** | **4+** |
+Subscription group: **Studio Pro** (`22109037`)
 
 ---
 
-## Content rights
+## Submit / resubmit
 
-| Question | Answer |
-|----------|--------|
-| Third-party content | Music from archive.org (public domain / royalty-free classical). App UI and assets are original. |
-| Licensed content | None requiring separate licence upload |
+```bash
+export ASC_ISSUER_ID=70c46c69-5d6d-438d-b300-31df2b93163a
+export ASC_KEY_ID=A863K5FF84
+export ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_A863K5FF84.p8
+export APP_VERSION=1.1.0
+export APP_BUILD_NUMBER=113
+./scripts/finish_app_store_submission.sh
+```
 
----
+Configure subscriptions: `python3 scripts/configure_studio_pro_subscriptions.py`
 
-## App Privacy (nutrition labels)
-
-| Data type | Collected | Linked to user | Tracking |
-|-----------|-----------|----------------|----------|
-| Purchases | Yes (StoreKit) | Yes | No |
-| User content (drawings) | On device / optional iCloud | User's iCloud | No |
-| Identifiers | None for ads | — | No |
-
----
-
-## In-App Purchases
-
-| Product ID | Type |
-|------------|------|
-| `com.worldclassscholars.etherealveil.studio.monthly` | Auto-renewable subscription |
-| `com.worldclassscholars.etherealveil.studio.yearly` | Auto-renewable subscription |
-
-Subscription group: **Studio Pro** — configure pricing and localisation in App Store Connect if not already live.
-
----
-
-## Submission checklist
-
-- [ ] Build uploaded and processing complete in TestFlight / App Store Connect
-- [ ] Build selected on version **1.1.0** (or aligned marketing version)
-- [ ] Screenshots for required device sizes (6.7", 6.5", iPad Pro 12.9" if universal)
-- [ ] Age rating questionnaire completed
-- [ ] App Privacy questionnaire completed
-- [ ] IAP products approved or ready for review with app
-- [ ] Export compliance answered
-- [ ] Submit for Review
-
-Automate: `python3 scripts/app_store_connect_deploy.py --metadata --age-rating --review --submit`
+Reply in Resolution Center: paste `distribution/app-store/resolution_center_response.md`

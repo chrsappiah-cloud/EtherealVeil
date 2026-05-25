@@ -69,4 +69,20 @@ enum StudioProductID {
     static let yearly = "com.worldclassscholars.etherealveil.studio.yearly"
 
     static var all: [String] { [monthly, yearly] }
+
+    static func displayName(for productID: String) -> String {
+        switch productID {
+        case monthly: "Studio Pro Monthly"
+        case yearly: "Studio Pro Yearly"
+        default: productID
+        }
+    }
+
+    static func catalogSummary(for productID: String) -> String {
+        switch productID {
+        case monthly: "Monthly auto-renewing subscription"
+        case yearly: "Yearly auto-renewing subscription"
+        default: "Auto-renewing subscription"
+        }
+    }
 }

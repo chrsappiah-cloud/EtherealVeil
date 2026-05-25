@@ -20,8 +20,11 @@ let package = Package(
             // try to find a duplicate entry point when building as a library.
             exclude: [
                 "Assets.xcassets",
+                "EtherealVeil.entitlements",
                 "EtherealVeilApp.swift",
+                "ExportOptions-export.plist",
                 "ExportOptions.plist",
+                "Products.storekit",
                 "Resources"
             ]
         ),

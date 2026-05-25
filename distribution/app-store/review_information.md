@@ -1,4 +1,4 @@
-# App Store Review Information — Ethereal Veil 1.1.0
+# App Store Review Information — Ethereal Veil 1.1.0 (build 113)
 
 Apple App ID: `6763116253` · Bundle: `com.worldclassscholars.etherealveil`
 
@@ -6,32 +6,34 @@ Apple App ID: `6763116253` · Bundle: `com.worldclassscholars.etherealveil`
 
 - **First name:** Christopher
 - **Last name:** Appiah-Thompson
-- **Phone:** (provide in App Store Connect)
+- **Phone:** +61400000000
 - **Email:** chrsappiah@gmail.com
+
+## Sign-in required
+
+**No.** There is no username/password login and no remote authentication server.
 
 ## Demo account
 
-Not required. Core Draw, Paint, Library, Cloud, and Music work without login.
-
-**Studio Pro (optional):** Account tab → subscribe with a Sandbox Apple ID to test `studio.monthly` / `studio.yearly` IAP.
+**Not required.** Use **Enable Full Feature Demo** on the Account tab (see notes below).
 
 ## Notes for reviewer
 
-1. **Drawing & painting** — Open the Draw or Paint tab and drag on the canvas. Use toolbar controls for tools, colors, undo/redo, and Save to add a session to Library.
-2. **Music** — Tap Play on the gold music strip. Playlist is available from the hero **Playlist** button. Audio streams royalty-free MP3 files from archive.org (ATS exception declared in Info.plist).
-3. **Library** — Saved sessions appear after using Save in Draw or Paint.
-4. **Cloud** — Backup toggles and manual checkpoints are UI state backed by SwiftData; CloudKit requires the configured container on a signed build.
-5. **Account** — Optional StoreKit subscriptions and admin access controls; no server login for basic studio use.
-6. **Encryption** — `ITSAppUsesNonExemptEncryption` is `false` (HTTPS only, no custom cryptography).
+1. **No username or password** — Ethereal Veil does not use network login credentials. Users enter an **email** and **display name** on the Account tab and tap **Sign in or create account**. First-time visitors automatically create a local on-device studio profile. There is no password field and no server to authenticate against.
+2. **Creating an account** — Account tab → enter any email (e.g. `reviewer@example.com`) and display name → tap **Sign in or create account**. The profile is stored locally on the device.
+3. **Studio Pro subscriptions (IAP)** — Open the **Account** tab. The first section below the header is **Studio Pro subscriptions (In-App Purchase)** with **Studio Pro Monthly** and **Studio Pro Yearly**. Tap a plan to purchase, or **Reload subscription plans** if prices are still loading. **Enable Full Feature Demo** is in the section below and unlocks all features for review but does **not** hide or remove the subscription section above it.
+4. **Full feature access (optional)** — Account tab → **Enable Full Feature Demo**. Status shows “App Review Demo enabled · Full feature access.”
+5. **Drawing & painting** — Use Draw or Paint; drag on the canvas. Toolbar: tools, colours, undo/redo, Save.
+6. **Library** — Appears after Save in Draw or Paint.
+7. **Music** — Tap Play on the gold music strip or open **Playlist**. Streams royalty-free MP3 from archive.org (foreground playback only).
+8. **Cloud** — Backup toggles and checkpoints in the Cloud tab.
+9. **Background audio** — Build 113 does **not** declare `UIBackgroundModes` `audio` (Guideline 2.5.4 addressed).
+10. **Encryption** — `ITSAppUsesNonExemptEncryption` is `false` (HTTPS only).
 
 ## Export compliance
 
-Uses standard HTTPS for music streaming. No proprietary encryption beyond Apple OS APIs.
+Standard HTTPS for music streaming only. No custom cryptography.
 
-## Age rating guidance
+## Age rating
 
-4+ — creative tools, no user-generated public content, no social features.
-
-## TestFlight
-
-CI/CD uploads on semver tag `v*.*.*` via GitHub Actions workflow `CD — TestFlight (Production)`.
+4+ — creative tools; no public UGC or social features.

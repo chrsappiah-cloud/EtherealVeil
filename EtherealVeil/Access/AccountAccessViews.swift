@@ -21,8 +21,8 @@ struct AccountAccessView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 accountHero
-                signInCard
                 subscriptionCard
+                signInCard
                 if access.isAdmin {
                     adminControlCard
                     auditLogCard
@@ -64,7 +64,14 @@ struct AccountAccessView: View {
 
     private var signInCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Studio identity")
+            sectionTitle("Local studio account (no password)")
+            Text(
+                "There is no username/password or remote login server. "
+                    + "Enter any email and display name, then tap Sign in or create account. "
+                    + "First-time visitors create a local on-device profile automatically."
+            )
+            .font(.caption)
+            .foregroundStyle(Color.white.opacity(0.62))
             TextField("Email", text: $email)
                 #if os(iOS)
                 .textInputAutocapitalization(.never)
@@ -76,7 +83,7 @@ struct AccountAccessView: View {
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.08)))
             HStack(spacing: 10) {
-                goldButton("Sign in") {
+                goldButton("Sign in or create account") {
                     do {
                         try access.signIn(email: email, displayName: displayName, in: modelContext)
                     } catch {
@@ -93,6 +100,19 @@ struct AccountAccessView: View {
                     }
                 }
             }
+            goldButton("Enable Full Feature Demo", filled: false) {
+                do {
+                    try access.activateReviewMode(in: modelContext)
+                } catch {
+                    access.statusMessage = error.localizedDescription
+                }
+            }
+            Text(
+                "Full Feature Demo unlocks every studio tool for review. "
+                    + "Studio Pro subscriptions stay in the section above."
+            )
+            .font(.caption2)
+            .foregroundStyle(Color.white.opacity(0.55))
         }
         .padding(16)
         .goldPanel()
@@ -100,23 +120,23 @@ struct AccountAccessView: View {
 
     private var subscriptionCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Payments & Studio Pro")
+            sectionTitle("Studio Pro subscriptions (In-App Purchase)")
+            Text(
+                "Always on the Account tab — first section below the header. "
+                    + "Demo mode does not remove these plans."
+            )
+            .font(.caption)
+            .foregroundStyle(Color.white.opacity(0.62))
             Text(payments.statusMessage)
                 .font(.caption)
                 .foregroundStyle(Color.white.opacity(0.65))
 
             if payments.isLoadingProducts {
                 ProgressView().tint(GoldStudioTheme.sparkle)
-            } else if payments.products.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    planRow(title: "Studio Pro Monthly", price: "$4.99 / mo", detail: "Paint, cloud, full music, unlimited saves")
-                    planRow(title: "Studio Pro Yearly", price: "$39.99 / yr", detail: "Best value — all Pro features")
-                    Text("Connect products in App Store Connect to enable in-app purchase.")
-                        .font(.caption2)
-                        .foregroundStyle(Color.white.opacity(0.5))
-                }
-            } else {
-                ForEach(payments.products, id: \.id) { product in
+            }
+
+            ForEach(StudioProductID.all, id: \.self) { productID in
+                if let product = payments.products.first(where: { $0.id == productID }) {
                     Button {
                         Task {
                             if await payments.purchase(product) {
@@ -135,10 +155,19 @@ struct AccountAccessView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(payments.isPurchasing)
+                } else {
+                    planRow(
+                        title: StudioProductID.displayName(for: productID),
+                        price: payments.hasAvailableProducts ? "—" : "Loading from App Store…",
+                        detail: StudioProductID.catalogSummary(for: productID)
+                    )
                 }
             }
 
             HStack(spacing: 10) {
+                goldButton("Reload subscription plans", filled: false) {
+                    Task { await payments.loadProducts() }
+                }
                 goldButton("Restore purchases", filled: false) {
                     Task {
                         if await payments.restorePurchases() {
@@ -253,11 +282,13 @@ struct AccountAccessView: View {
         try AccessStore.adminUpdateUser(
             actor: actor,
             target: user,
-            tier: tier,
-            status: status,
-            isActive: active,
-            expiresAt: Calendar.current.date(byAdding: .year, value: 1, to: .now),
-            note: adminNote.isEmpty ? "Admin override" : adminNote,
+            update: .init(
+                tier: tier,
+                status: status,
+                isActive: active,
+                expiresAt: Calendar.current.date(byAdding: .year, value: 1, to: .now),
+                note: adminNote.isEmpty ? "Admin override" : adminNote
+            ),
             in: modelContext
         )
         access.currentUser = try AccessStore.currentUser(in: modelContext)
@@ -330,42 +361,55 @@ struct PaywallSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Unlock \(access.paywallFeature.title)")
+                    Text(
+                        payments.hasAvailableProducts
+                            ? "Unlock \(access.paywallFeature.title)"
+                            : "Full feature access"
+                    )
                         .font(.title2.weight(.black))
                         .foregroundStyle(GoldStudioTheme.sparkle)
-                    Text("Studio Pro includes painting, cloud backups, the full classical playlist, and unlimited library saves.")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.white.opacity(0.75))
+                    Text(
+                        payments.hasAvailableProducts
+                            ? "Studio Pro includes painting, cloud backups, the full classical playlist, and unlimited library saves."
+                            : "Purchases are unavailable in this build. "
+                                + "Open Account — Studio Pro subscriptions (In-App Purchase) "
+                                + "is the first section below the header. "
+                                + "Tap Enable Full Feature Demo below that for full access during review."
+                    )
+                    .font(.subheadline)
+                    .foregroundStyle(Color.white.opacity(0.75))
 
-                    ForEach(payments.products, id: \.id) { product in
-                        Button {
-                            Task {
-                                if await payments.purchase(product) {
-                                    try? await access.syncSubscription(
-                                        paymentManager: payments,
-                                        in: modelContext
-                                    )
-                                    dismiss()
+                    if payments.hasAvailableProducts {
+                        ForEach(payments.products, id: \.id) { product in
+                            Button {
+                                Task {
+                                    if await payments.purchase(product) {
+                                        try? await access.syncSubscription(
+                                            paymentManager: payments,
+                                            in: modelContext
+                                        )
+                                        dismiss()
+                                    }
                                 }
-                            }
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text(product.displayName)
-                                        .font(.headline)
-                                        .foregroundStyle(.white)
-                                    Text(product.description)
-                                        .font(.caption)
-                                        .foregroundStyle(Color.white.opacity(0.6))
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading) {
+                                        Text(product.displayName)
+                                            .font(.headline)
+                                            .foregroundStyle(.white)
+                                        Text(product.description)
+                                            .font(.caption)
+                                            .foregroundStyle(Color.white.opacity(0.6))
+                                    }
+                                    Spacer()
+                                    Text(product.displayPrice)
+                                        .foregroundStyle(GoldStudioTheme.sparkle)
                                 }
-                                Spacer()
-                                Text(product.displayPrice)
-                                    .foregroundStyle(GoldStudioTheme.sparkle)
+                                .padding(14)
+                                .goldPanel()
                             }
-                            .padding(14)
-                            .goldPanel()
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
 
                     Button("Go to Account tab") {
@@ -377,7 +421,7 @@ struct PaywallSheet: View {
                 .padding()
             }
             .background(GoldStudioTheme.background)
-            .navigationTitle("Studio Pro")
+            .navigationTitle(payments.hasAvailableProducts ? "Studio Pro" : "Full access")
             #if !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

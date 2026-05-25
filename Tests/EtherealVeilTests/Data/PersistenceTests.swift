@@ -86,6 +86,8 @@ final class PersistenceTests: XCTestCase {
     }
 
     func testInMemoryContainerDoesNotPersistAcrossInstances() throws {
-        throw XCTSkip("SwiftData in-memory isolation across ModelContainer instances is not guaranteed within a single process (known platform limitation).")
+        throw XCTSkip(
+            "SwiftData in-memory isolation across ModelContainer instances is not guaranteed within a single process (known platform limitation)."
+        )
     }
 }

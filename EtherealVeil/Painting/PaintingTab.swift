@@ -316,7 +316,12 @@ struct PaintingTab: View {
         .buttonStyle(.plain)
     }
 
-    private func glowButton(icon: String, enabled: Bool, tint: Color = Color(red: 0.88, green: 0.69, blue: 0.29), action: @escaping () -> Void) -> some View {
+    private func glowButton(
+        icon: String,
+        enabled: Bool,
+        tint: Color = Color(red: 0.88, green: 0.69, blue: 0.29),
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .semibold))

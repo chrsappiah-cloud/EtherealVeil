@@ -61,6 +61,9 @@ jobs:
           plutil -lint EtherealVeil/ExportOptions.plist
           plutil -lint EtherealVeil/EtherealVeil.entitlements
 
+      - name: Validate App Store review documentation
+        run: chmod +x scripts/validate_app_store_review_docs.sh && ./scripts/validate_app_store_review_docs.sh
+
       - name: SwiftLint
         run: brew install swiftlint && swiftlint lint
 

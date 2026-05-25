@@ -34,6 +34,8 @@ def resolve_key(connect: dict) -> tuple[str, Path]:
         candidates.append((preferred, Path.home() / "private_keys" / f"AuthKey_{preferred}.p8"))
     appstore_keys = Path.home() / ".appstoreconnect" / "private_keys"
     for kid, path in [
+        ("A863K5FF84", appstore_keys / "AuthKey_A863K5FF84.p8"),
+        ("A863K5FF84", Path.home() / "Downloads" / "AuthKey_A863K5FF84.p8"),
         ("TN35FDL978", appstore_keys / "AuthKey_TN35FDL978.p8"),
         ("TN35FDL978", Path.home() / "Downloads" / "AuthKey_TN35FDL978.p8"),
         ("KLH62AX56M", appstore_keys / "AuthKey_KLH62AX56M.p8"),
@@ -228,13 +230,24 @@ def publish_privacy_not_collected(session: requests.Session, app_id: str) -> Non
 
 
 def attach_latest_build(session: requests.Session, app_id: str, version_id: str) -> bool:
-    r = session.get(f"{API}/apps/{app_id}/builds", params={"limit": 10})
+    preferred = os.environ.get("APP_BUILD_NUMBER")
+    r = session.get(f"{API}/apps/{app_id}/builds", params={"limit": 25})
     r.raise_for_status()
     builds = r.json().get("data", [])
     if not builds:
         print("No builds in App Store Connect — upload IPA first (CD workflow or local_testflight_archive.sh).")
         return False
-    build = builds[0]
+    build = None
+    if preferred:
+        for candidate in builds:
+            if candidate["attributes"].get("version") == preferred:
+                build = candidate
+                break
+        if build is None:
+            print(f"Build number {preferred} not found in App Store Connect.")
+            return False
+    else:
+        build = max(builds, key=lambda b: int(b["attributes"].get("version") or "0"))
     state = build["attributes"].get("processingState")
     if state != "VALID":
         print(f"Latest build {build['id']} state={state}; wait for VALID before submit.")
@@ -384,23 +397,61 @@ def main() -> None:
     if args.submit:
         if not args.attach_build:
             attach_latest_build(session, app_id, version_id)
-        r = post(
-            session,
-            f"{API}/appStoreVersionSubmissions",
-            {
-                "data": {
-                    "type": "appStoreVersionSubmissions",
-                    "relationships": {
-                        "appStoreVersion": {"data": {"type": "appStoreVersions", "id": version_id}}
-                    },
-                }
-            },
-        )
-        print("Submit for review:", r.status_code)
-        if r.status_code >= 400:
-            print(r.text[:1000])
-        else:
-            print("Submitted successfully.")
+        submit_review(session, app_id, version_id)
+
+
+def submit_review(session: requests.Session, app_id: str, version_id: str) -> None:
+    """Submit via reviewSubmissions API (replaces deprecated appStoreVersionSubmissions)."""
+    active = session.get(
+        f"{API}/apps/{app_id}/reviewSubmissions",
+        params={"filter[state]": "WAITING_FOR_REVIEW,IN_REVIEW,READY_FOR_REVIEW", "limit": 5},
+    )
+    if active.status_code == 200:
+        for item in active.json().get("data", []):
+            state = item["attributes"].get("state")
+            if state in ("WAITING_FOR_REVIEW", "IN_REVIEW", "READY_FOR_REVIEW"):
+                print(f"Already in review (submission {item['id']}, state={state}).")
+                return
+
+    r = post(
+        session,
+        f"{API}/reviewSubmissions",
+        {"data": {"type": "reviewSubmissions", "relationships": {"app": {"data": {"type": "apps", "id": app_id}}}}},
+    )
+    if r.status_code not in (200, 201):
+        print("Create review submission:", r.status_code, r.text[:800])
+        return
+    submission_id = r.json()["data"]["id"]
+    print(f"Created review submission {submission_id}")
+
+    item = post(
+        session,
+        f"{API}/reviewSubmissionItems",
+        {
+            "data": {
+                "type": "reviewSubmissionItems",
+                "relationships": {
+                    "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": submission_id}},
+                    "appStoreVersion": {"data": {"type": "appStoreVersions", "id": version_id}},
+                },
+            }
+        },
+    )
+    print("Add version to submission:", item.status_code)
+    if item.status_code >= 400:
+        print(item.text[:800])
+        return
+
+    final = patch(
+        session,
+        f"{API}/reviewSubmissions/{submission_id}",
+        {"data": {"type": "reviewSubmissions", "id": submission_id, "attributes": {"submitted": True}}},
+    )
+    print("Submit for review:", final.status_code)
+    if final.status_code >= 400:
+        print(final.text[:1000])
+    else:
+        print(f"Submitted successfully (submission {submission_id}).")
 
     if not any(
         [

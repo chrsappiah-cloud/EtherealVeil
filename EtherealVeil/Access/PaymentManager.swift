@@ -19,6 +19,8 @@ final class PaymentManager {
         updatesTask = Task { await listenForTransactions() }
     }
 
+    var hasAvailableProducts: Bool { !products.isEmpty }
+
     func loadProducts() async {
         isLoadingProducts = true
         defer { isLoadingProducts = false }
@@ -27,7 +29,7 @@ final class PaymentManager {
             products = try await Product.products(for: StudioProductID.all)
                 .sorted { $0.price < $1.price }
             if products.isEmpty {
-                statusMessage = "Subscriptions will appear when products are live in App Store Connect."
+                statusMessage = "Purchases are not available in this build."
             } else {
                 statusMessage = "Choose a plan to unlock Studio Pro."
             }

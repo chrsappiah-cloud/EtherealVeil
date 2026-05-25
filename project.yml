@@ -14,7 +14,7 @@ settings:
     DEVELOPMENT_TEAM: TM2WG7HH96
     SWIFT_VERSION: "6.0"
     MARKETING_VERSION: "1.1.0"
-    CURRENT_PROJECT_VERSION: "110"
+    CURRENT_PROJECT_VERSION: "113"
     CODE_SIGN_STYLE: Automatic
     ENABLE_USER_SCRIPT_SANDBOXING: NO
 
@@ -36,12 +36,28 @@ targets:
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
     entitlements:
       path: EtherealVeil/EtherealVeil.entitlements
+  EtherealVeilTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/EtherealVeilTests
+    dependencies:
+      - target: EtherealVeil
+    hostApplication: EtherealVeil
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.worldclassscholars.etherealveil.tests
+        GENERATE_INFOPLIST_FILE: YES
 
 schemes:
   EtherealVeil:
     build:
       targets:
         EtherealVeil: all
+    test:
+      config: Debug
+      targets:
+        - EtherealVeilTests
     run:
       config: Debug
     archive:

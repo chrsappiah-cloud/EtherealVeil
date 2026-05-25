@@ -60,8 +60,17 @@ EOF
 cat > "$DELIVER/metadata/review_information/phone_number.txt" <<EOF
 +61400000000
 EOF
-cat > "$DELIVER/metadata/review_information/notes.txt" <<'EOF'
-Open Draw or Paint and sketch on the canvas. Tap Play for classical music from archive.org. Account tab offers optional Studio Pro StoreKit subscriptions (sandbox testable). No login required for core features. ITSAppUsesNonExemptEncryption is false.
-EOF
+python3 - "$ROOT/distribution/app-store/review_information.md" > "$DELIVER/metadata/review_information/notes.txt" <<'PY'
+import sys
+from pathlib import Path
+
+text = Path(sys.argv[1]).read_text()
+start = text.find("## Notes for reviewer")
+if start < 0:
+    raise SystemExit("Missing ## Notes for reviewer in review_information.md")
+chunk = text[start:].split("## Export compliance")[0]
+lines = [ln.strip() for ln in chunk.splitlines() if ln.strip() and not ln.startswith("#")]
+print("\n".join(lines)[:4000])
+PY
 
 echo "Deliver metadata ready under fastlane/deliver/"
