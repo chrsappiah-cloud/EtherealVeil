@@ -1,9 +1,9 @@
 {
   "version": "1.1.0",
   "icons": [
-    "AppIcon.png",
-    "AppIcon-Dark.png",
-    "AppIcon-Tinted.png"
+    "distribution/app-store/icons/AppIcon.png",
+    "distribution/app-store/icons/AppIcon-Dark.png",
+    "distribution/app-store/icons/AppIcon-Tinted.png"
   ],
   "screenshots": [
     "iphone_67_01_draw.png",

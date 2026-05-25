@@ -39,6 +39,9 @@ jobs:
       - name: Validate App Store review documentation
         run: chmod +x scripts/validate_app_store_review_docs.sh && ./scripts/validate_app_store_review_docs.sh
 
+      - name: Validate App Store icon originals
+        run: chmod +x scripts/validate_app_store_icons.sh && ./scripts/validate_app_store_icons.sh
+
       - name: SwiftLint
         run: |
           brew install swiftlint

@@ -15,6 +15,7 @@ except ImportError as exc:  # pragma: no cover
 
 ROOT = Path(__file__).resolve().parents[1]
 ICON_DIR = ROOT / "EtherealVeil/Assets.xcassets/AppIcon.appiconset"
+CANONICAL_ICON_DIR = ROOT / "distribution/app-store/icons"
 SHOT_DIR_EN_US = ROOT / "distribution/app-store/screenshots/en-US"
 SHOT_DIR_EN_AU = ROOT / "distribution/app-store/screenshots/en-AU"
 PROMO_DIR = ROOT / "Promotional"
@@ -140,15 +141,46 @@ def write_icon(name: str, image: Image.Image) -> None:
     print(f"Wrote {path}")
 
 
-def main() -> None:
+def sync_canonical_app_icons(regenerate: bool = False) -> None:
+    """Keep the Xcode asset catalog on the original App Store icon artwork."""
     ICON_DIR.mkdir(parents=True, exist_ok=True)
+    CANONICAL_ICON_DIR.mkdir(parents=True, exist_ok=True)
+    icon_names = ["AppIcon.png", "AppIcon-Dark.png", "AppIcon-Tinted.png"]
+
+    if regenerate:
+        icon = render_app_icon(1024)
+        for name in icon_names:
+            write_icon(name, icon)
+            shutil.copy2(ICON_DIR / name, CANONICAL_ICON_DIR / name)
+        return
+
+    missing = [name for name in icon_names if not (CANONICAL_ICON_DIR / name).exists()]
+    if missing:
+        raise SystemExit(
+            "Missing canonical App Store icons in distribution/app-store/icons: "
+            + ", ".join(missing)
+        )
+
+    for name in icon_names:
+        shutil.copy2(CANONICAL_ICON_DIR / name, ICON_DIR / name)
+        print(f"Synced original icon {ICON_DIR / name}")
+
+
+def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--regenerate-icons",
+        action="store_true",
+        help="Replace canonical icons with programmatic placeholders (not for App Store).",
+    )
+    args = parser.parse_args()
+
+    sync_canonical_app_icons(regenerate=args.regenerate_icons)
+
     for shot_dir in (SHOT_DIR_EN_US, SHOT_DIR_EN_AU):
         shot_dir.mkdir(parents=True, exist_ok=True)
-
-    icon = render_app_icon(1024)
-    write_icon("AppIcon.png", icon)
-    write_icon("AppIcon-Dark.png", icon)
-    write_icon("AppIcon-Tinted.png", icon)
 
     frames = [
         ("iphone_67_01_draw.png", 1290, 2796, "Draw with gold studio controls", "Pencil, brush, marker, eraser, undo, and cloud save."),
@@ -199,7 +231,11 @@ def main() -> None:
 
     manifest = {
         "version": "1.1.0",
-        "icons": ["AppIcon.png", "AppIcon-Dark.png", "AppIcon-Tinted.png"],
+        "icons": [
+            "distribution/app-store/icons/AppIcon.png",
+            "distribution/app-store/icons/AppIcon-Dark.png",
+            "distribution/app-store/icons/AppIcon-Tinted.png",
+        ],
         "screenshots": [f[0] for f in all_frames],
         "promotional": [p[0] for p in promo_specs],
     }
