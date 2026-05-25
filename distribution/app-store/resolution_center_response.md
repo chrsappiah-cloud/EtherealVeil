@@ -35,8 +35,8 @@ Tap a plan to start the App Store purchase sheet. If prices are still loading, t
 
 **Enable Full Feature Demo** unlocks every feature for review but does **not** remove or hide the subscription section above it.
 
-Please review **build 113**. Contact: chrsappiah@gmail.com
+Please review **build 113** (original App Store icon artwork restored). Contact: chrsappiah@gmail.com
 
 ---
 
-**Prior submission:** `821ef3ad-bd58-4dd3-9407-dc6a0275c494` (reviewed 2026-05-25 on iPad Air 11-inch M3)
+**Active submission:** `821ef3ad-bd58-4dd3-9407-dc6a0275c494` (build **113** attached 2026-05-26)

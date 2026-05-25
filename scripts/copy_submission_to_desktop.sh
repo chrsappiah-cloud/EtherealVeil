@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="$HOME/Desktop/EtherealVeil-AppStore-Submission"
+RESOLUTION_URL="https://appstoreconnect.apple.com/apps/6763116253/distribution/activity/ios/resolutioncenter"
 
 rm -rf "$DEST"
 mkdir -p "$DEST/metadata" "$DEST/screenshots" "$DEST/review"
@@ -11,6 +12,7 @@ mkdir -p "$DEST/metadata" "$DEST/screenshots" "$DEST/review"
 cp -R "$ROOT/distribution/app-store/metadata/en-AU/"* "$DEST/metadata/"
 cp "$ROOT/distribution/app-store/screenshots/en-AU/"*.png "$DEST/screenshots/"
 cp "$ROOT/distribution/app-store/review_information.md" "$DEST/review/"
+cp "$ROOT/distribution/app-store/resolution_center_response.md" "$DEST/RESOLUTION_CENTER_REPLY.txt"
 cp "$ROOT/distribution/app-store/submission_responses.md" "$DEST/"
 cp "$ROOT/distribution/PRIVACY.md" "$DEST/"
 cp "$ROOT/distribution/app-store/INFLIGHT_CHECKLIST.md" "$DEST/README_SUBMIT.md"
@@ -25,6 +27,9 @@ STATUS: Resubmit after review fixes (build ${BUILD})
 Track review:
   https://appstoreconnect.apple.com/apps/6763116253/distribution/appstore/reviewsubmissions
 
+Reply to App Review (paste RESOLUTION_CENTER_REPLY.txt):
+  ${RESOLUTION_URL}
+
 After approval (manual release):
   1. Open version inflight URL
   2. Click "Release this version"
@@ -37,4 +42,5 @@ Resubmit after rejection:
 EOF
 
 echo "Copied submission package to: $DEST"
+open "$RESOLUTION_URL" 2>/dev/null || true
 open "https://appstoreconnect.apple.com/apps/6763116253/distribution/ios/version/inflight" 2>/dev/null || true
