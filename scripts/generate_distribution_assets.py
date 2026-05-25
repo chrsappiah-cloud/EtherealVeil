@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+"""Generate App Store icons and marketing screenshots for Ethereal Veil."""
+
+from __future__ import annotations
+
+import json
+import math
+import shutil
+from pathlib import Path
+
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except ImportError as exc:  # pragma: no cover
+    raise SystemExit("Install Pillow: pip install pillow") from exc
+
+ROOT = Path(__file__).resolve().parents[1]
+ICON_DIR = ROOT / "EtherealVeil/Assets.xcassets/AppIcon.appiconset"
+CANONICAL_ICON_DIR = ROOT / "distribution/app-store/icons"
+SHOT_DIR_EN_US = ROOT / "distribution/app-store/screenshots/en-US"
+SHOT_DIR_EN_AU = ROOT / "distribution/app-store/screenshots/en-AU"
+PROMO_DIR = ROOT / "Promotional"
+
+GOLD = (0.88, 0.69, 0.29)
+GOLD_DK = (0.67, 0.49, 0.17)
+BG_TOP = (0.03, 0.02, 0.01)
+BG_BOTTOM = (0.22, 0.16, 0.08)
+
+
+def lerp(a: float, b: float, t: float) -> float:
+    return a + (b - a) * t
+
+
+def gradient_bg(size: int) -> Image.Image:
+    img = Image.new("RGB", (size, size))
+    draw = ImageDraw.Draw(img)
+    for y in range(size):
+        t = y / max(size - 1, 1)
+        color = tuple(
+            int(255 * lerp(BG_TOP[i], BG_BOTTOM[i], t)) for i in range(3)
+        )
+        draw.line([(0, y), (size, y)], fill=color)
+    return img
+
+
+def draw_sparkle_ring(draw: ImageDraw.ImageDraw, cx: int, cy: int, radius: int) -> None:
+    for i in range(24):
+        angle = (math.pi * 2 * i) / 24
+        x1 = cx + int(math.cos(angle) * (radius - 8))
+        y1 = cy + int(math.sin(angle) * (radius - 8))
+        x2 = cx + int(math.cos(angle) * radius)
+        y2 = cy + int(math.sin(angle) * radius)
+        draw.line([(x1, y1), (x2, y2)], fill=tuple(int(255 * c) for c in GOLD), width=3)
+
+
+def render_app_icon(size: int = 1024) -> Image.Image:
+    img = gradient_bg(size)
+    draw = ImageDraw.Draw(img)
+    cx, cy = size // 2, size // 2
+    outer = int(size * 0.36)
+    inner = int(size * 0.28)
+
+    draw.ellipse(
+        [cx - outer, cy - outer, cx + outer, cy + outer],
+        outline=tuple(int(255 * c) for c in GOLD),
+        width=max(6, size // 80),
+    )
+    draw_sparkle_ring(draw, cx, cy, outer)
+
+    draw.ellipse(
+        [cx - inner, cy - inner, cx + inner, cy + inner],
+        fill=tuple(int(255 * c) for c in GOLD_DK),
+        outline=(255, 255, 255),
+        width=max(4, size // 120),
+    )
+
+    font_size = size // 5
+    try:
+        font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", font_size)
+    except OSError:
+        font = ImageFont.load_default()
+    text = "EV"
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    draw.text((cx - tw // 2, cy - th // 2 - size // 40), text, fill=(0, 0, 0), font=font)
+    return img
+
+
+def render_screenshot(width: int, height: int, headline: str, subtitle: str) -> Image.Image:
+    img = Image.new("RGB", (width, height))
+    draw = ImageDraw.Draw(img)
+    for y in range(height):
+        t = y / max(height - 1, 1)
+        color = tuple(int(255 * lerp(BG_TOP[i], BG_BOTTOM[i], t)) for i in range(3))
+        draw.line([(0, y), (width, y)], fill=color)
+
+    pad = width // 14
+    panel_top = height // 5
+    panel_bottom = height - height // 6
+    draw.rounded_rectangle(
+        [pad, panel_top, width - pad, panel_bottom],
+        radius=48,
+        outline=tuple(int(255 * c) for c in GOLD),
+        width=4,
+        fill=(20, 14, 6),
+    )
+
+    try:
+        title_font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", width // 14)
+        body_font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", width // 26)
+        small_font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", width // 34)
+    except OSError:
+        title_font = body_font = small_font = ImageFont.load_default()
+
+    draw.text((pad + 40, panel_top + 40), "Ethereal Veil", fill=tuple(int(255 * c) for c in GOLD), font=title_font)
+    draw.text((pad + 40, panel_top + 40 + width // 10), headline, fill=(255, 255, 255), font=body_font)
+    draw.text((pad + 40, panel_top + 40 + width // 6), subtitle, fill=(200, 190, 170), font=small_font)
+
+    # Mock tab bar
+    bar_y = panel_bottom - 120
+    draw.rounded_rectangle(
+        [pad + 20, bar_y, width - pad - 20, panel_bottom - 30],
+        radius=30,
+        fill=(30, 22, 10),
+        outline=tuple(int(255 * c) for c in GOLD),
+        width=2,
+    )
+    tabs = ["Draw", "Paint", "Library", "Cloud", "Account"]
+    slot = (width - 2 * pad - 40) // len(tabs)
+    for i, label in enumerate(tabs):
+        cx = pad + 20 + slot * i + slot // 2
+        draw.ellipse([cx - 28, bar_y + 18, cx + 28, bar_y + 74], fill=tuple(int(255 * c) for c in GOLD) if i == 0 else (60, 50, 30))
+        draw.text((cx - 18, bar_y + 78), label, fill=(255, 255, 255), font=small_font)
+
+    draw.text((pad, height - 80), "World Class Scholars", fill=(180, 160, 120), font=small_font)
+    return img
+
+
+def write_icon(name: str, image: Image.Image) -> None:
+    path = ICON_DIR / name
+    image.save(path, format="PNG")
+    print(f"Wrote {path}")
+
+
+def sync_canonical_app_icons(regenerate: bool = False) -> None:
+    """Keep the Xcode asset catalog on the original App Store icon artwork."""
+    ICON_DIR.mkdir(parents=True, exist_ok=True)
+    CANONICAL_ICON_DIR.mkdir(parents=True, exist_ok=True)
+    icon_names = ["AppIcon.png", "AppIcon-Dark.png", "AppIcon-Tinted.png"]
+
+    if regenerate:
+        icon = render_app_icon(1024)
+        for name in icon_names:
+            write_icon(name, icon)
+            shutil.copy2(ICON_DIR / name, CANONICAL_ICON_DIR / name)
+        return
+
+    missing = [name for name in icon_names if not (CANONICAL_ICON_DIR / name).exists()]
+    if missing:
+        raise SystemExit(
+            "Missing canonical App Store icons in distribution/app-store/icons: "
+            + ", ".join(missing)
+        )
+
+    for name in icon_names:
+        shutil.copy2(CANONICAL_ICON_DIR / name, ICON_DIR / name)
+        print(f"Synced original icon {ICON_DIR / name}")
+
+
+def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--regenerate-icons",
+        action="store_true",
+        help="Replace canonical icons with programmatic placeholders (not for App Store).",
+    )
+    args = parser.parse_args()
+
+    sync_canonical_app_icons(regenerate=args.regenerate_icons)
+
+    for shot_dir in (SHOT_DIR_EN_US, SHOT_DIR_EN_AU):
+        shot_dir.mkdir(parents=True, exist_ok=True)
+
+    frames = [
+        ("iphone_67_01_draw.png", 1290, 2796, "Draw with gold studio controls", "Pencil, brush, marker, eraser, undo, and cloud save."),
+        ("iphone_67_02_paint.png", 1290, 2796, "Paint with artist brushes", "Round, flat, fan, palette knife, watercolor, and oil."),
+        ("iphone_67_03_music.png", 1290, 2796, "Classical music while you create", "CC0 Chopin playlist with favorites and playlist sheet."),
+        ("iphone_67_04_cloud.png", 1290, 2796, "CloudKit library and backups", "Saved sessions, favorites, and backup checkpoints."),
+        ("iphone_67_05_account.png", 1290, 2796, "Account, payments & admin", "StoreKit Pro, admin grants, audit trail."),
+    ]
+    # Required for universal iOS apps (6.5" and iPad Pro 12.9" 3rd gen slots).
+    extra_frames = [
+        ("iphone_65_01_draw.png", 1242, 2688, "Draw with gold studio controls", "Pencil, brush, marker, eraser, undo, and cloud save."),
+        ("iphone_65_02_paint.png", 1242, 2688, "Paint with artist brushes", "Round, flat, fan, palette knife, watercolor, and oil."),
+        ("ipad_pro129_01_studio.png", 2048, 2732, "Ethereal Veil for iPad", "Draw, paint, and listen on the big canvas."),
+        ("ipad_pro129_02_cloud.png", 2048, 2732, "CloudKit library on iPad", "Saved sessions, favorites, and backup checkpoints."),
+    ]
+    all_frames = frames + extra_frames
+    for shot_dir in (SHOT_DIR_EN_US, SHOT_DIR_EN_AU):
+        for filename, w, h, headline, subtitle in all_frames:
+            path = shot_dir / filename
+            render_screenshot(w, h, headline, subtitle).save(path, format="PNG")
+            print(f"Wrote {path}")
+
+    PROMO_DIR.mkdir(parents=True, exist_ok=True)
+    promo_specs = [
+        ("Promo_01_Hero.png", 1290, 2796, "Ethereal Veil Studio", "Draw · Paint · Music · Cloud · Pro"),
+        ("Promo_02_Draw_Paint.png", 1242, 2688, "Draw & Paint", "Gold brushes · SwiftData library"),
+        ("Promo_03_Music_Cloud.png", 2048, 2732, "Music & Cloud", "Classical playlist · CloudKit backup"),
+        ("Promo_04_Subscriptions.png", 1920, 1080, "Studio Pro", "$4.99/mo · $39.99/yr · Admin access"),
+        ("Promo_05_Investor_CI.png", 1024, 500, "Investor Ready", "CI/CD · TestFlight · App Store"),
+    ]
+    legacy_aliases = [
+        ("AppStore_iPhone_6.7.png", "Promo_01_Hero.png"),
+        ("AppStore_iPhone_5.5.png", "Promo_02_Draw_Paint.png"),
+        ("AppStore_iPad_12.9.png", "Promo_03_Music_Cloud.png"),
+        ("Feature_Banner_1920x1080.png", "Promo_04_Subscriptions.png"),
+        ("Social_Banner_1024x500.png", "Promo_05_Investor_CI.png"),
+    ]
+    for name, w, h, headline, subtitle in promo_specs:
+        path = PROMO_DIR / name
+        render_screenshot(w, h, headline, subtitle).save(path, format="PNG")
+        print(f"Wrote {path}")
+
+    for alias, source in legacy_aliases:
+        src = PROMO_DIR / source
+        if src.exists():
+            shutil.copy2(src, PROMO_DIR / alias)
+            print(f"Wrote {PROMO_DIR / alias} (alias)")
+
+    manifest = {
+        "version": "1.1.0",
+        "icons": [
+            "distribution/app-store/icons/AppIcon.png",
+            "distribution/app-store/icons/AppIcon-Dark.png",
+            "distribution/app-store/icons/AppIcon-Tinted.png",
+        ],
+        "screenshots": [f[0] for f in all_frames],
+        "promotional": [p[0] for p in promo_specs],
+    }
+    manifest_path = ROOT / "distribution/app-store/asset_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    print(f"Wrote {manifest_path}")
+
+
+if __name__ == "__main__":
+    main()

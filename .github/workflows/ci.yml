@@ -11,63 +11,134 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── Lint ────────────────────────────────────────────────────────────────
-  lint:
-    name: SwiftLint
+  validate:
+    name: Lint & Validate
     runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install SwiftLint
-        run: brew install swiftlint
-
-      - name: Run SwiftLint
-        run: swiftlint lint --strict --reporter github-actions-logging
-
-  # ── Build & Test ─────────────────────────────────────────────────────────
-  build-test:
-    name: Build & Test (iOS ${{ matrix.ios }})
-    runs-on: macos-15
-    needs: lint
-    strategy:
-      matrix:
-        ios: ["18.4"]
     steps:
       - uses: actions/checkout@v4
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.3.app
 
-      - name: Resolve Swift Packages
+      - name: Generate Xcode project
         run: |
-          xcodebuild -resolvePackageDependencies \
-            -project EtherealVeil/EtherealVeil.xcodeproj \
-            -scheme EtherealVeil
+          brew install xcodegen
+          xcodegen generate
 
-      - name: Build for simulator
+      - name: Lint plists
         run: |
-          xcodebuild build-for-testing \
-            -project EtherealVeil/EtherealVeil.xcodeproj \
-            -scheme EtherealVeil \
-            -destination "platform=iOS Simulator,name=iPhone 16,OS=${{ matrix.ios }}" \
-            -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO \
-            | xcpretty
+          plutil -lint EtherealVeil/Resources/Info.plist
+          plutil -lint EtherealVeil/ExportOptions.plist
+          plutil -lint EtherealVeil/EtherealVeil.entitlements
+
+      - name: Validate workflow YAML
+        run: |
+          brew install yamllint
+          yamllint .github/workflows/
+
+      - name: Validate App Store review documentation
+        run: chmod +x scripts/validate_app_store_review_docs.sh && ./scripts/validate_app_store_review_docs.sh
+
+      - name: Validate App Store icon originals
+        run: chmod +x scripts/validate_app_store_icons.sh && ./scripts/validate_app_store_icons.sh
+
+      - name: SwiftLint
+        run: |
+          brew install swiftlint
+          swiftlint lint
+
+  build-and-test:
+    name: SPM Build & Test
+    needs: validate
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
+      - name: Resolve dependencies
+        run: swift package resolve
+
+      - name: Build
+        run: swift build --configuration debug
 
       - name: Run tests
-        run: |
-          xcodebuild test-without-building \
-            -project EtherealVeil/EtherealVeil.xcodeproj \
-            -scheme EtherealVeil \
-            -destination "platform=iOS Simulator,name=iPhone 16,OS=${{ matrix.ios }}" \
-            -resultBundlePath TestResults.xcresult \
-            CODE_SIGNING_ALLOWED=NO \
-            | xcpretty
+        run: swift test --configuration debug --parallel
 
-      - name: Upload test results
-        if: always()
+  xcode-build:
+    name: Xcode Release Build
+    needs: build-and-test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Download iOS platform (asset catalog thinning on CI)
+        run: xcodebuild -downloadPlatform iOS
+
+      - name: Build iOS app (Release, no signing)
+        run: |
+          xcodebuild build \
+            -project EtherealVeil.xcodeproj \
+            -scheme EtherealVeil \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES
+
+  distribution-assets:
+    name: Promotional & Investor Assets
+    needs: validate
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install asset tooling
+        run: pip install -r scripts/requirements.txt
+
+      - name: Generate 5 promotional images
+        run: python3 scripts/generate_distribution_assets.py
+
+      - name: Generate 10-page investor brochure (PDF + pages)
+        run: python3 scripts/ethereal_veil_investor_report.py
+
+      - name: Verify promotional and brochure outputs
+        run: |
+          test -f Promotional/Promo_01_Hero.png
+          test -f Promotional/Promo_05_Investor_CI.png
+          test -f distribution/EtherealVeil_Investor_Brochure.pdf
+          test -f distribution/investor-brochure/pages/EtherealVeil_Brochure_Page_01.png
+          test -f distribution/investor-brochure/pages/EtherealVeil_Brochure_Page_10.png
+          test -f distribution/app-store/screenshots/en-AU/iphone_67_01_draw.png
+          test -f distribution/app-store/screenshots/en-AU/iphone_65_01_draw.png
+          test -f distribution/app-store/screenshots/en-AU/ipad_pro129_01_studio.png
+
+      - name: Verify fastlane deliver screenshot layout
+        run: |
+          bash scripts/prepare_deliver_metadata.sh
+          test -f fastlane/deliver/screenshots/en-AU/iphone67_01.png
+          test -f fastlane/deliver/screenshots/en-AU/iphone65_01.png
+          test -f fastlane/deliver/screenshots/en-AU/ipadPro129_01.png
+
+      - name: Upload investor bundle artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TestResults-iOS-${{ matrix.ios }}
-          path: TestResults.xcresult
-          retention-days: 14
+          name: investor-promotional-assets
+          path: |
+            Promotional/Promo_*.png
+            distribution/EtherealVeil_Investor_Brochure.pdf
+            distribution/investor-brochure/pages/
+          retention-days: 30

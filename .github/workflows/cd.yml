@@ -1,15 +1,97 @@
-name: CD — TestFlight
+name: CD — TestFlight (Production)
 
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"   # e.g. v1.0.0
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      marketing_version:
+        description: "Marketing version (e.g. 1.1.0). Blank = Info.plist."
+        required: false
+        type: string
+      skip_upload:
+        description: "Archive and export only (skip TestFlight upload)"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SCHEME: EtherealVeil
+  CONFIGURATION: Release
+  INFO_PLIST: EtherealVeil/Resources/Info.plist
+  EXPORT_PLIST: EtherealVeil/ExportOptions-export.plist
+  TEAM_ID: TM2WG7HH96
 
 jobs:
+  quality-gate:
+    name: Pre-release quality gate
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install asset tooling
+        run: pip install -r scripts/requirements.txt
+
+      - name: Generate distribution images + investor PDF
+        run: |
+          python3 scripts/generate_distribution_assets.py
+          python3 scripts/ethereal_veil_investor_report.py
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Lint plists
+        run: |
+          plutil -lint EtherealVeil/Resources/Info.plist
+          plutil -lint EtherealVeil/ExportOptions.plist
+          plutil -lint EtherealVeil/EtherealVeil.entitlements
+
+      - name: Validate App Store review documentation
+        run: chmod +x scripts/validate_app_store_review_docs.sh && ./scripts/validate_app_store_review_docs.sh
+
+      - name: Validate App Store icon originals
+        run: chmod +x scripts/validate_app_store_icons.sh && ./scripts/validate_app_store_icons.sh
+
+      - name: SwiftLint
+        run: brew install swiftlint && swiftlint lint
+
+      - name: SPM tests
+        run: |
+          swift package resolve
+          swift test --configuration release --parallel
+
+      - name: Upload distribution bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: distribution-assets-prerelease
+          path: |
+            Promotional/
+            distribution/app-store/screenshots/
+            distribution/EtherealVeil_Investor_Brochure.pdf
+            distribution/investor-brochure/pages/
+          retention-days: 14
+
   archive-and-upload:
     name: Archive & Upload to TestFlight
+    needs: quality-gate
     runs-on: macos-15
     environment: production
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
@@ -17,64 +99,163 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.3.app
 
-      # Import signing certificate & provisioning profile from Secrets
-      - name: Import code signing assets
+      - name: Validate distribution secrets
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
         run: |
-          CERT_PATH=$RUNNER_TEMP/build_certificate.p12
-          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          chmod +x scripts/validate_distribution_secrets.sh
+          ./scripts/validate_distribution_secrets.sh
 
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Resolve marketing version + build number
+        id: version
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            MV="${GITHUB_REF_NAME#v}"
+          elif [[ -n "${{ inputs.marketing_version }}" ]]; then
+            MV="${{ inputs.marketing_version }}"
+          else
+            MV=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST")
+          fi
+          BN="$(( 100 + ${{ github.run_number }} ))"
+          echo "marketing=$MV" >> "$GITHUB_OUTPUT"
+          echo "build=$BN" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp Info.plist
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version.outputs.marketing }}" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ steps.version.outputs.build }}" "$INFO_PLIST"
+
+      - name: Import Apple Distribution certificate
+        id: codesign
+        uses: Apple-Actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.P12_PASSWORD }}
+          keychain: app-signing
+          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+      - name: Install provisioning profile (UUID path)
+        id: profile
+        env:
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          PP_PATH="$RUNNER_TEMP/EtherealVeil.mobileprovision"
           echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
+          PROFILE_UUID=$(security cms -D -i "$PP_PATH" | plutil -extract UUID raw -o - -)
+          echo "uuid=$PROFILE_UUID" >> "$GITHUB_OUTPUT"
+          chmod +x scripts/install_provisioning_profile.sh
+          ./scripts/install_provisioning_profile.sh "$PP_PATH"
+          echo "Using provisioning profile UUID: $PROFILE_UUID"
 
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          security import "$CERT_PATH" -P "$P12_PASSWORD" \
-            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH"
-
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
-
-      - name: Archive
+      - name: Configure keychain for xcodebuild
         run: |
+          set -euo pipefail
+          echo "KEYCHAIN_PATH=${KEYCHAIN_PATH:-}"
+          if [[ -n "${KEYCHAIN_PATH:-}" ]]; then
+            security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/^[[:space:]]*"\(.*\)".*/\1/')
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          fi
+
+      - name: Archive (Release)
+        run: |
+          set -euo pipefail
           xcodebuild archive \
-            -project EtherealVeil/EtherealVeil.xcodeproj \
-            -scheme EtherealVeil \
-            -configuration Release \
-            -archivePath $RUNNER_TEMP/EtherealVeil.xcarchive \
-            -allowProvisioningUpdates
+            -project EtherealVeil.xcodeproj \
+            -scheme "$SCHEME" \
+            -configuration "$CONFIGURATION" \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/$SCHEME.xcarchive" \
+            -allowProvisioningUpdates \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            OTHER_CODE_SIGN_FLAGS="${KEYCHAIN_PATH:+--keychain $KEYCHAIN_PATH}"
 
       - name: Export IPA
         run: |
+          set -euo pipefail
           xcodebuild -exportArchive \
-            -archivePath $RUNNER_TEMP/EtherealVeil.xcarchive \
-            -exportOptionsPlist EtherealVeil/ExportOptions.plist \
-            -exportPath $RUNNER_TEMP/export
+            -archivePath "$RUNNER_TEMP/$SCHEME.xcarchive" \
+            -exportOptionsPlist "$EXPORT_PLIST" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates
+          ls -lh "$RUNNER_TEMP/export"
 
-      - name: Upload to TestFlight
+      - name: Prepare App Store Connect API key file
         env:
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          APP_STORE_CONNECT_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
+          ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
         run: |
-          KEY_PATH=$RUNNER_TEMP/AuthKey.p8
-          echo -n "$APP_STORE_CONNECT_KEY_BASE64" | base64 --decode -o "$KEY_PATH"
+          echo -n "$ASC_PRIVATE_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
 
-          xcrun altool --upload-app \
+      - name: Validate IPA (App Store Connect)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.skip_upload != true }}
+        run: |
+          xcrun altool --validate-app \
             --type ios \
             --file "$RUNNER_TEMP/export/EtherealVeil.ipa" \
-            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
-            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
-            --apiPrivateKeyPath "$KEY_PATH"
+            --apiKey "${{ secrets.ASC_KEY_ID }}" \
+            --apiIssuer "${{ secrets.ASC_ISSUER_ID }}" \
+            --output-format xml
 
-      - name: Clean up keychain
+      - name: Upload to TestFlight
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.skip_upload != true }}
+        uses: Apple-Actions/upload-testflight-build@v3
+        with:
+          app-path: ${{ runner.temp }}/export/EtherealVeil.ipa
+          app-type: ios
+          issuer-id: ${{ secrets.ASC_ISSUER_ID }}
+          api-key-id: ${{ secrets.ASC_KEY_ID }}
+          api-private-key: ${{ env.ASC_KEY_PATH }}
+
+      - name: Bundle distribution zip
+        run: |
+          chmod +x scripts/bundle_distribution.sh
+          ./scripts/bundle_distribution.sh dist "${{ steps.version.outputs.marketing }}"
+
+      - name: Upload IPA artifact
         if: always()
-        run: security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
+        uses: actions/upload-artifact@v4
+        with:
+          name: EtherealVeil-ipa-v${{ steps.version.outputs.marketing }}-b${{ steps.version.outputs.build }}
+          path: ${{ runner.temp }}/export/*.ipa
+          retention-days: 30
+
+      - name: Upload full distribution bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: EtherealVeil-distribution-v${{ steps.version.outputs.marketing }}
+          path: |
+            dist/*.zip
+            distribution/
+            Promotional/
+          retention-days: 90
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## TestFlight / Distribution"
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Version | \`${{ steps.version.outputs.marketing }}\` (\`${{ steps.version.outputs.build }}\`) |"
+            echo "| Upload | \`${{ (github.event_name == 'workflow_dispatch' && inputs.skip_upload == true) && 'skipped' || 'completed' }}\` |"
+            echo "| Team | \`$TEAM_ID\` |"
+            echo "| Trigger | \`${{ github.event_name }}\` |"
+            echo ""
+            echo "Download **EtherealVeil-distribution** artifact for screenshots, metadata, and investor PDF."
+          } >> "$GITHUB_STEP_SUMMARY"

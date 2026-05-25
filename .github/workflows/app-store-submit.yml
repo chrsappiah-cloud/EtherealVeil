@@ -1,0 +1,50 @@
+name: App Store — Metadata & Submit
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_version:
+        description: "Marketing version (e.g. 1.1.0)"
+        required: false
+        default: "1.1.0"
+        type: string
+
+jobs:
+  deliver-submit:
+    name: Upload metadata, screenshots, submit for review
+    runs-on: macos-15
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: fastlane
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate screenshots
+        run: pip install -r scripts/requirements.txt && python3 scripts/generate_distribution_assets.py
+
+      - name: Prepare deliver folders
+        run: chmod +x scripts/prepare_deliver_metadata.sh && ./scripts/prepare_deliver_metadata.sh
+
+      - name: Write App Store Connect API key
+        env:
+          ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
+        run: echo -n "$ASC_PRIVATE_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: Deliver — metadata, screenshots, submit
+        working-directory: fastlane
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+          APP_VERSION: ${{ inputs.app_version }}
+        run: bundle exec fastlane deliver_submit

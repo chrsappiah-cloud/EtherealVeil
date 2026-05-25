@@ -1,0 +1,26 @@
+{
+  "version": "1.1.0",
+  "icons": [
+    "distribution/app-store/icons/AppIcon.png",
+    "distribution/app-store/icons/AppIcon-Dark.png",
+    "distribution/app-store/icons/AppIcon-Tinted.png"
+  ],
+  "screenshots": [
+    "iphone_67_01_draw.png",
+    "iphone_67_02_paint.png",
+    "iphone_67_03_music.png",
+    "iphone_67_04_cloud.png",
+    "iphone_67_05_account.png",
+    "iphone_65_01_draw.png",
+    "iphone_65_02_paint.png",
+    "ipad_pro129_01_studio.png",
+    "ipad_pro129_02_cloud.png"
+  ],
+  "promotional": [
+    "Promo_01_Hero.png",
+    "Promo_02_Draw_Paint.png",
+    "Promo_03_Music_Cloud.png",
+    "Promo_04_Subscriptions.png",
+    "Promo_05_Investor_CI.png"
+  ]
+}

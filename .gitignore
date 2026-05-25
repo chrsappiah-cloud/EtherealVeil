@@ -38,3 +38,7 @@ output/
 # CocoaPods
 Pods/
 Podfile.lock
+
+# Fastlane run artifacts
+fastlane/report.xml
+fastlane/test_output/

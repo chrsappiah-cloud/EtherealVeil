@@ -1,0 +1,43 @@
+// © 2026 World Class Scholars — Dr. Christopher Appiah-Thompson. All Rights Reserved.
+// Ethereal Veil™ is a trademark of World Class Scholars.
+// Unauthorized reproduction or distribution is prohibited.
+// DrawingCanvas — renders stroke list via Canvas API with smooth Bezier paths.
+
+import SwiftUI
+
+struct DrawingCanvas: View {
+    var vm: DrawingViewModel
+
+    var body: some View {
+        Canvas { context, _ in
+            for stroke in vm.strokes {
+                var ctx = context
+                ctx.opacity = stroke.opacity
+                ctx.blendMode = stroke.tool.blendMode
+
+                ctx.stroke(
+                    stroke.path,
+                    with: .color(stroke.color),
+                    style: StrokeStyle(
+                        lineWidth: stroke.width,
+                        lineCap: .round,
+                        lineJoin: .round
+                    )
+                )
+            }
+        }
+        .background(Color(white: 0.08))
+        .gesture(
+            DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                .onChanged { value in
+                    if value.translation == .zero {
+                        vm.startStroke(at: value.location)
+                    } else {
+                        vm.addPoint(value.location)
+                    }
+                }
+                .onEnded { _ in vm.endStroke() }
+        )
+        .drawingGroup()
+    }
+}
